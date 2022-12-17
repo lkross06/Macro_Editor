@@ -4,24 +4,33 @@ import tkinter as tk
 from tkinter.ttk import *
 import pandas as pd
 from tkinter import filedialog as fd
-import pynput.keyboard as keyboard
-import pynput.mouse as mouse #Listener, Button
+import pynput.keyboard as keyboard #Listener, Button, Controller
+import pynput.mouse as mouse #Listener, Button, Controller
 import time as t
 import os
 
+'''
+generic class for command objects
+'''
 class Command:
     def __init__(self, name, vals):
-        self.name = str(name)
-        self.vals = vals #values to use to run
-        self.isactive = False
+        self.name = str(name) #identification var
+        self.vals = vals #values to use to run (dynamic size, based on command)
+        self.intbounds = [1, 100] #bounds for commands that use int values (i.e. hold for n seconds)
 
     def save(self, vals):
         self.vals = vals
 
+    def checkintbounds(self, val): #makes sure that int vals are between bounds
+        if val < self.intbounds[0]:
+            val = self.intbounds[0]
+        if val > self.intbounds[1]:
+            val = self.intbounds[1]
+
     def getexectime(self):
         return 0 #this will be inherited by commands that take time to run
     
-    def label(self):
+    def label(self): #for listbox
         return self.name + ", " + str(self.vals)
 '''
 CLICK
@@ -31,27 +40,31 @@ vals[1] = (int) how many times to click
 '''
 class Click(Command):
     def __init__(self):
-        Command.__init__(self, "Click", ["a", 1])
+        Command.__init__(self, "Click", ["a", 1]) #default values: click a, 1 time
+        #we need both controllers bc the user can click keys or mouse buttons
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
-        self.type = "Button"
-        self.usekeydict = True
+        self.type = "Button" #identification var
+        self.usekeydict = True #tells Macro.run() if it should pass the keydictionary as a parameter
 
     def label(self):
-        return "click [" + self.vals[0] + "] " + str(self.vals[1]) + " times"
+        return "click [" + self.vals[0] + "] " + str(self.vals[1]) + " time(s)"
 
     def save(self, vals): #returns true if successful, false otherwise
+        #vals input is an array of Tk Vars (because they update dynamically), so we gotta .get() to get their values
         key = vals[0].get()
         repeat = vals[1].get()
 
+        self.checkintbounds(repeat) #check bounds
+
         self.vals = [key, repeat]
-        return True
+        return True #the entry widgets are pretty much impossible to mess up
 
     def run(self, keydict):
-        for i in range(0, self.vals[1]):
-            if self.vals[0] == "lmb" or self.vals[0] == "rmb" or self.vals[0] == "mmb":
+        for i in range(0, self.vals[1]): #repeat n times
+            if self.vals[0] == "lmb" or self.vals[0] == "rmb" or self.vals[0] == "mmb": #mouse buttons
                 self.mouse.click(keydict[self.vals[0]])
-            else:
+            else: #keyboard buttons
                 self.key.tap(keydict[self.vals[0]])
 
 '''
@@ -62,7 +75,7 @@ vals[1] = how long (sec) to hold it
 '''
 class Hold(Command):
     def __init__(self):
-        Command.__init__(self, "Hold", ["a", 1])
+        Command.__init__(self, "Hold", ["a", 1]) #default values: hold a for 1 second
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
         self.type = "Button"
@@ -75,18 +88,20 @@ class Hold(Command):
         key = vals[0].get()
         time = vals[1].get()
 
+        self.checkintbounds(time) #check bounds
+
         self.vals = [key, time]
         return True
     
     def getexectime(self):
-        return self.vals[1]
+        return self.vals[1] #execution time is the time to hold down the button
 
-    def run(self, keydict):
-        if self.vals[0] == "lmb" or self.vals[0] == "rmb" or self.vals[0] == "mmb":
+    def run(self, keydict): #hold = press, sleep, release
+        if self.vals[0] == "lmb" or self.vals[0] == "rmb" or self.vals[0] == "mmb": #mouse buttons
             self.mouse.press(keydict[self.vals[0]])
             t.sleep(self.vals[1])
             self.mouse.release(keydict[self.vals[0]])
-        else:
+        else: #keyboard buttons
             self.key.press(keydict[self.vals[0]])
             t.sleep(self.vals[1])
             self.key.release(keydict[self.vals[0]])
@@ -97,7 +112,7 @@ vals[0] = string  to press
 '''
 class Press(Command):
     def __init__(self):
-        Command.__init__(self, "Press", ["a"])
+        Command.__init__(self, "Press", ["a"]) #default value: press a
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
         self.type = "Button"
@@ -113,9 +128,9 @@ class Press(Command):
         return True
 
     def run(self, keydict):
-        if self.vals[0] == "lmb" or self.vals[0] == "rmb" or self.vals[0] == "mmb":
+        if self.vals[0] == "lmb" or self.vals[0] == "rmb" or self.vals[0] == "mmb": #mouse button
             self.mouse.press(keydict[self.vals[0]])
-        else:
+        else: #keyboard button
             self.key.press(keydict[self.vals[0]])
 '''
 RELEASE 
@@ -124,7 +139,7 @@ vals[0] = string  to release
 '''
 class Release(Command):
     def __init__(self):
-        Command.__init__(self, "Release", ["a"])
+        Command.__init__(self, "Release", ["a"]) #default value: release a
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
         self.type = "Button"
@@ -140,9 +155,9 @@ class Release(Command):
         return True
 
     def run(self, keydict):
-        if self.vals[0] == "lmb" or self.vals[0] == "rmb" or self.vals[0] == "mmb":
+        if self.vals[0] == "lmb" or self.vals[0] == "rmb" or self.vals[0] == "mmb": #mouse button
             self.mouse.release(keydict[self.vals[0]])
-        else:
+        else: #keyboard
             self.key.release(keydict[self.vals[0]])
 '''
 TYPE
@@ -151,10 +166,10 @@ vals[0] = string (1+ character) to type
 '''
 class Type(Command):
     def __init__(self):
-        Command.__init__(self, "Type", ["abc"])
-        self.controller = keyboard.Controller()
+        Command.__init__(self, "Type", ["abc"]) #default value: type "abc"
+        self.controller = keyboard.Controller() #you cant type mouse buttons, so we just need keyboard
         self.type = "Button"
-        self.usekeydict = False
+        self.usekeydict = False #the user inputs the string to type, so we dont need to convert anything
 
     def label(self):
         return "type " + self.vals[0]
@@ -175,7 +190,7 @@ vals[1] = y coord to move to (0 <= y <= height)
 '''
 class MoveMouse(Command):
     def __init__(self):
-        Command.__init__(self, "Move Mouse", [0, 0])
+        Command.__init__(self, "Move Mouse", [0, 0]) #default values: move mouse to (0,0) (top left)
         self.type = "Mouse"
         self.usekeydict = False
         self.controller = mouse.Controller()
@@ -191,19 +206,19 @@ class MoveMouse(Command):
         return True
 
     def run(self):
-        dx = self.vals[0]
-        dy = self.vals[1]
+        x = self.vals[0]
+        y = self.vals[1]
 
-        self.controller.position = (dx, dy)
+        self.controller.position = (x, y) #manually set position of mouse
         
 '''
 SCROLL MOUSE (equivalent to 2-finger movement on touchpad)
 vals[0] = amount of steps (int)
-vals[1] = direction (up, right, down, leeft)
+vals[1] = direction (up, right, down, left)
 '''
 class Scroll(Command):
     def __init__(self):
-        Command.__init__(self, "Scroll Mouse", [1, "down"])
+        Command.__init__(self, "Scroll Mouse", [1, "down"]) #default values: scroll mouse 1 step down
         self.controller = mouse.Controller()
         self.type = "Mouse"
         self.usekeydict = False
@@ -217,6 +232,8 @@ class Scroll(Command):
     def save(self, vals):
         steps = vals[0].get()
         direction = vals[1].get()
+
+        self.checkintbounds(steps)
 
         self.vals = [int(steps), direction]
         return True
@@ -255,7 +272,7 @@ vals[0] = sec to sleep
 '''
 class Sleep(Command):
     def __init__(self):
-        Command.__init__(self, "Sleep", [1])
+        Command.__init__(self, "Sleep", [1]) #default value: sleep for 1 second
         self.type = "Other"
         self.usekeydict = False
 
@@ -265,16 +282,20 @@ class Sleep(Command):
     def save(self, vals):
         sec = vals[0].get()
 
+        self.checkintbounds(sec) #check int bounds
+
         self.vals = [int(sec)]
         return True
     
     def getexectime(self):
-        return self.vals[0]
+        return self.vals[0] #execution time is whatever the amount the user inputs
 
     def run(self):
-        t.sleep(self.vals[0])
+        t.sleep(self.vals[0]) #easy peasy
         
-
+'''
+tkinter application to simulate user inputs with pynput (keyboard/mouse)
+'''
 class Macro:
     def __init__(self):
         self.commands = [] #list of commands to execute
@@ -286,7 +307,7 @@ class Macro:
         self.vals = [] #this will transfer gui info to commands
 
         self.root = tk.Tk() # Create a window
-        self.root.title(self.title) # Set title
+        self.root.title(self.title)
         self.root.geometry("800x800+200+50")
         self.root.resizable(width=False, height=False)
 
@@ -294,6 +315,7 @@ class Macro:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
+        #make the notebook for different tabs
         self.notebook = Notebook(self.root, height=700)
         self.notebook.grid(sticky="NESW")
 
@@ -301,11 +323,13 @@ class Macro:
         self.commands_tab()
         self.history_tab()
 
+        #make the menu widgets
         self.menu()
 
-        #first use dictionary comprehension to add the alphanumerics + symbols
+        #any key that can be pressed without holding shift / toggling caps lock
         no_shift = [39] + [x for x in range(44, 58)] + [59, 61, 91, 92, 93, 96] + [x for x in range(97, 123)] #see comment block in self.unshift()
 
+        #converts the name of the character in the GUI to the character to press in the pynput functions
         self.keydict = {chr(x):chr(x) for x in no_shift} # character name : character
 
         #now add the others
@@ -322,17 +346,28 @@ class Macro:
         self.keydict["rmb"] = mouse.Button.right
         self.keydict["mmb"] = mouse.Button.middle
 
-        # listener for mouse so that user knows mouse coords
-        mouse.Listener(on_move=self.update_mouse).start()
-        # keyboard.GlobalHotKeys({
-        # '<cmd>+c': self.copy,
-        # '<cmd>+v': self.paste,
-        # '<cmd>+x': self.cut
-        # }).start()
+        # listener for mouse
+        mouselistener = mouse.Listener(on_move=self.update_mouse)
+        mouselistener.start()
+        #hotkeys (standard commands for osx and windows)
+        hotkeys = keyboard.GlobalHotKeys({
+        '<cmd>+c': self.copy,
+        '<cmd>+v': self.paste,
+        '<cmd>+x': self.cut,
+        '<ctrl>+c': self.copy,
+        '<ctrl>+v': self.paste,
+        '<ctrl>+x': self.cut
+        })
+        hotkeys.start()
 
+        #start the main loop
         self.root.mainloop()
 
-    def commands_tab(self):
+        #stop thread after loop closes
+        mouselistener.stop()
+        hotkeys.stop()
+
+    def commands_tab(self): #the main page of the notebook widget
         tab = Frame(self.notebook)
         tab.grid()
 
@@ -353,6 +388,7 @@ class Macro:
         self.list.bind("<Enter>", self.toggle_inlistbox)
         self.list.bind("<Leave>", self.toggle_inlistbox)
 
+        #for metrics relating to inputs and commands
         metricframe = LabelFrame(tab, text="Metrics", width=50)
         metricframe.grid(row=0, column=1, sticky="NESW", padx=5, pady=5)
         metricframe.grid_propagate(False)
@@ -379,6 +415,7 @@ class Macro:
         exectimelabel.grid(row=1, column=0, columnspan=2)
         exectimelabel.grid_propagate(False)
 
+        #for managing metrics related to program itself (title of program, execution time interval)
         manageframe = LabelFrame(tab, text="Manage", width=50)
         manageframe.grid(row=1, column=1, sticky='NESW', padx=5, pady=5)
         manageframe.grid_propagate(False)
@@ -414,7 +451,7 @@ class Macro:
         savebutton = Button(manageframe, text="Save", command=self.update_program)
         savebutton.grid(row=2, column=0, columnspan=2)
 
-        #manage labelframe
+        #for editing the selected command
         self.edit = LabelFrame(tab, text="Edit", width=50) #starting width = 50
         self.edit.grid(row=2, column=1, sticky='NESW', padx=5, pady=5)
         self.edit.grid_propagate(False) #dont let children change widget size
@@ -427,24 +464,22 @@ class Macro:
         self.edit.columnconfigure(1)
         self.edit.columnconfigure(2)
 
-        self.load_editdefault()
+        self.load_editdefault() #load the default edit frame (i.e. when no command is selected)
 
-        self.notebook.add(tab, text="Commands")
+        self.notebook.add(tab, text="Commands") #add to notebook
 
-    def update_program(self):
-        self.title = self.titlevar.get()
-        self.root.title(self.title)
-
+    def update_program(self): #update program metrics from Tk Vars
+        self.root.title(self.titlevar.get())
         self.wait = self.waitvar.get()
 
-    def toggle_inlistbox(self, event):
+    def toggle_inlistbox(self, event): #toggle when the mouse is over the listbox (and items can be selected)
         self.inlistbox = not(self.inlistbox)
 
-    def update_mouse(self, x, y):
+    def update_mouse(self, x, y): #update mouse position from listener
         mousepos = (int(x), int(y))
         self.mousevar.set("Mouse Position: " + str(mousepos))
 
-    def history_tab(self):
+    def history_tab(self): #create history page for notebook
         tab = Frame(self.notebook)
         tab.grid()
         self.notebook.add(tab, text="History")
@@ -463,6 +498,7 @@ class Macro:
         #configure the root with the menu bar
         self.root.config(menu=menubar)
 
+        #commands related to the python application itself and the program
         file_menu = tk.Menu(menubar, tearoff=0) #tearoff does not let you move the menu out of the window
         file_menu.add_command(label="Run", command=self.run)
         file_menu.add_separator()
@@ -470,7 +506,8 @@ class Macro:
         file_menu.add_command(label="Export as TXT...", command=self.export_txt)
         file_menu.add_separator()
         file_menu.add_command(label="Quit", command=quit)
-
+        
+        #commands related to editing commands
         edit_menu = tk.Menu(menubar, tearoff=0) #tearoff does not let you move the menu out of the window
         edit_menu.add_command(label="Cut", command=self.cut)
         edit_menu.add_command(label="Copy", command=self.copy)
@@ -479,6 +516,7 @@ class Macro:
         edit_menu.add_command(label="Delete", command=self.delete)
         edit_menu.add_command(label="Clear", command=self.clear)
 
+        #commands to add command objects to program
         add_menu = tk.Menu(menubar, tearoff=0) #tearoff does not let you move the menu out of the window
         add_menu.add_command(label="Click", command=self.click)
         add_menu.add_command(label="Hold", command=self.hold)
@@ -494,10 +532,9 @@ class Macro:
 
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Edit", menu=edit_menu)
-        menubar.add_cascade(label="Commands", menu=add_menu)
+        menubar.add_cascade(label="Add", menu=add_menu)
 
     def load_editsave(self, frame): #adds two buttons to the bottom of a command manage labelframe
-
         #now do the buttons
         delbutton = Button(frame, command=self.listbox_delete, text="Delete")
         delbutton.grid(row=2, column=0, sticky="NS")
@@ -505,7 +542,7 @@ class Macro:
         savebutton = Button(frame, command=self.save, text="Save")
         savebutton.grid(row=2, column=1, sticky="NS")
 
-    def load_editdefault(self):
+    def load_editdefault(self): #default frame for when no command is selected
         none = Label(self.edit, text="No Command Selected")
         none.grid(row=1, column=1) #3x3 grid, so this label is in the middle
             
@@ -515,17 +552,17 @@ class Macro:
         if self.inlistbox: #only allow changes if in the listbox
             if len(curr) == 1: #single selection
                 index = curr[0] #since the listbox only allows single selection, the tuple only has 1 item
-            else: #either multiple selection or no selection
+            else: #either multiple selection or no selection (you cant edit then)
                 index = None
             self.load_curr(index)
 
 
-    def update_exectime(self):
+    def update_exectime(self): #re-calculates execution time of program
         sec = 0
 
         for i in range(0, len(self.commands)):
             cmd = self.commands[i]
-            sec += cmd.getexectime()
+            sec += cmd.getexectime() #get execution time of each command
 
             #if its not the last command, then add an extra self.wait to the end
             if i < len(self.commands) - 1:
@@ -534,39 +571,38 @@ class Macro:
         #now set the label to sec
         self.exectime.set("Execution Time: " + str(sec) + "s")
 
-    def run(self):
+    def run(self): #run the program!!
         for i in range(0, len(self.commands)):
             cmd = self.commands[i]
-            if cmd.type == "Button":
+            if cmd.usekeydict: #pass in keydict if the command needs it 
                cmd.run(self.keydict)
             else:
                 cmd.run()
 
-            if i < len(self.commands) - 1: #only do the wait time if its not the last command
+            if i < len(self.commands) - 1: #sleep for self.wait time if its not the last command
                 t.sleep(self.wait)
 
-    def delete(self):
+    def delete(self): #deletes a selection of commands in the listbox
         curr = self.list.curselection()
         for i in range(0, len(curr)): #iterates through n elements to delete (delete the labels)
             self.commands.pop(curr[0]) #delete from the first element in selection
         
-        self.list.delete(curr[0], curr[len(curr) - 1])
+        self.list.delete(curr[0], curr[len(curr) - 1]) #delete from listbox
     
-        #update the things
+        #update the program (that nothing is selected)
         self.load_curr(None)
 
         #update execution time
         self.update_exectime()
 
-
-    def copy(self):
-        self.clipboard = []
+    def copy(self): #copy commands indices to the clipboard
+        self.clipboard = [] #reset clipboard
         for i in self.list.curselection():
-            self.clipboard.append(self.commands[i])
+            self.clipboard.append(self.commands[i]) #add everything to keyboard
 
-    def paste(self):
+    def paste(self): #paste all indices from clipboard after current selection
         if len(self.clipboard) > 0:
-            if self.curr != None: #modified listbox_add() function
+            if self.curr != None: #insert into program
                 i = self.curr
 
                 #remove labels (after self.curr) from listbox
@@ -586,14 +622,14 @@ class Macro:
                 for cmd in after:
                     self.listbox_add(cmd)
                     
-            else:
+            else: #if nothing is selected, just add to the end of the program
                 for i in self.clipboard:
                     self.listbox_add(i)
             
             #update execution time
             self.update_exectime()
     
-    def clear(self): #reset all vals
+    def clear(self): #reset all dynamic vals
         self.curr = None
         self.list.delete(0, self.list.size())
         self.commands = []
@@ -601,18 +637,17 @@ class Macro:
         
         self.waitvar.set(0.5)
         self.titlevar.set("Macro Editor")
-        
 
-        #now update everythin
+        #now update the program to display it
         self.load_curr(self.curr)
         self.update_exectime()
         self.update_program()
 
-    def cut(self):
+    def cut(self): #copies selection and deletes it
         self.copy()
         self.delete()
 
-    def listbox_delete(self):
+    def listbox_delete(self): #delete the selection from the listbox
         if self.curr != None:
             self.list.delete(self.curr)
             self.commands.pop(self.curr)
@@ -622,11 +657,11 @@ class Macro:
 
             self.load_curr(None)
 
-    def click(self):
+    def click(self): #create new click command
         cmd = Click()
         self.listbox_add(cmd)
     
-    def load_click(self):
+    def load_click(self): #load click frame onto edit frame
         frame = self.edit
 
         #vals[0]
@@ -658,13 +693,13 @@ class Macro:
         repeat3 = Label(frame, text="times.")
         repeat3.grid(row=1, column=2)
 
-        self.load_editsave(frame)
+        self.load_editsave(frame) #now put the save and delete button at the bottom
 
-    def hold(self):
+    def hold(self): #create new hold object
         cmd = Hold()
         self.listbox_add(cmd)
 
-    def load_hold(self):
+    def load_hold(self): #load the hold frame onto the edit frame
         frame = self.edit
 
         #vals[0]
@@ -696,13 +731,13 @@ class Macro:
         repeat3 = Label(frame, text="seconds.")
         repeat3.grid(row=1, column=2)
 
-        self.load_editsave(frame)
+        self.load_editsave(frame) #now put the save and delete button at the bottom
 
-    def press(self):
+    def press(self): #create new press object
         cmd = Press()
         self.listbox_add(cmd)
 
-    def load_press(self):
+    def load_press(self): #load press frame onto edit frame
         frame = self.edit
 
         #vals[0]
@@ -722,13 +757,13 @@ class Macro:
 
         key2.grid(row=0, column=1)
 
-        self.load_editsave(frame)
+        self.load_editsave(frame) #now put the save and delete button at the bottom
 
-    def release(self):
+    def release(self): #create new release object
         cmd = Release()
         self.listbox_add(cmd)
 
-    def load_release(self):
+    def load_release(self): #load release frame onto edit frame
         frame = self.edit
 
         #vals[0]
@@ -748,13 +783,13 @@ class Macro:
 
         key2.grid(row=0, column=1)
 
-        self.load_editsave(frame)
+        self.load_editsave(frame) #now put the save and delete button at the bottom
 
-    def type(self):
+    def type(self): #create type object
         cmd = Type()
         self.listbox_add(cmd)
 
-    def load_type(self):
+    def load_type(self): #load type frame onto edit frame
         frame = self.edit
 
         #vals[0]
@@ -768,13 +803,13 @@ class Macro:
         key2 = Entry(frame, textvariable=self.vals[0])
         key2.grid(row=0, column=1)
 
-        self.load_editsave(frame)
+        self.load_editsave(frame) #now put the save and delete button at the bottom
 
-    def movemouse(self):
+    def movemouse(self): #create movemouse object
         cmd = MoveMouse()
         self.listbox_add(cmd)
     
-    def load_movemouse(self):
+    def load_movemouse(self): #load movemouse frame onto edit frame
         frame = self.edit
 
         #vals[0]
@@ -784,8 +819,8 @@ class Macro:
         val0 = tk.IntVar()
         val0.set(self.commands[self.curr].vals[0])
         self.vals.append(val0)
-
-        x2 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.root.winfo_screenwidth()) #0-width of screen
+        #x bounds: 0 to width of screen
+        x2 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.root.winfo_screenwidth()) 
         x2.grid(row=0, column=1)
 
         #vals[1]
@@ -796,16 +831,17 @@ class Macro:
         val1.set(self.commands[self.curr].vals[1])
         self.vals.append(val1)
 
+        #y bounds: 0 to height of screen
         y2 = Spinbox(frame, textvariable=self.vals[1], from_=1, to=self.root.winfo_screenheight())
         y2.grid(row=1, column=1)
 
-        self.load_editsave(frame)
+        self.load_editsave(frame) #now put the save and delete button at the bottom
 
-    def scroll(self):
+    def scroll(self): #create scroll object
         cmd = Scroll()
         self.listbox_add(cmd)
 
-    def load_scroll(self):
+    def load_scroll(self): #load scroll frame onto edit frame
         frame = self.edit
 
         #vals[0]
@@ -839,13 +875,13 @@ class Macro:
         d3 = Label(frame, text="direction.")
         d3.grid(row=1, column=2)
 
-        self.load_editsave(frame)
+        self.load_editsave(frame) #now put the delete and save button at the bottom
 
-    def sleep(self):
+    def sleep(self): #create sleep object
         cmd = Sleep()
         self.listbox_add(cmd)
     
-    def load_sleep(self):
+    def load_sleep(self): #load sleep frame onto edit frame
         frame = self.edit
 
         #vals[0]
@@ -863,16 +899,16 @@ class Macro:
         step3 = Label(frame, text="seconds.")
         step3.grid(row=0, column=2)
 
-        self.load_editsave(frame)
+        self.load_editsave(frame) #now put the delete and save button at the bottom
 
-    def listbox_add(self, x):
+    def listbox_add(self, x): #add command to the listbox
         self.list.insert(len(self.commands), x.label())
         self.commands.append(x)
 
         #now update execution time
         self.update_exectime()
 
-    def load_curr(self, i):
+    def load_curr(self, i): #update the GUI to correctly handle the current seletion (at index i)
         self.curr = i
 
         #delete current manage tab children
@@ -903,7 +939,7 @@ class Macro:
         else:
             self.load_editdefault()
 
-    def save(self):
+    def save(self): #save the edits to the current command
         cmd = self.commands[self.curr]
 
         #save changes
@@ -916,101 +952,8 @@ class Macro:
         #update execution time
         self.update_exectime()
 
-    def import_csv(self):
-        path = fd.askopenfilename()
-        try:
-            if len(path.removesuffix(".csv")) == len(path): #check if the path is NOT a .csv file
-                raise FileNotFoundError()
-
-            df = pd.read_csv(path)
-
-            names = df["name"]
-            v0s = df["v0"]
-            v1s = df["v1"]
-
-            #get the program title and wait interval
-            wait = df["int"][0] #just take any value from the column it doesnt matter
-
-            path = path.split("/") #split by "/"
-            filename = path[len(path) - 1].removesuffix(".csv") # get the last thingy then remove the .csv
-
-            self.titlevar.set(filename)
-            self.waitvar.set(wait)
-
-            self.update_program()
-
-            for row in range(0, len(names)):
-                name = names[row]
-                v0 = v0s[row]
-                v1 = v1s[row]
-
-                if name == "Click": #same as self.click() but it saves the new data to the obj before adding it
-                    cmd = Click()
-
-                    #cast to tk.StringVar/tk.IntVar objects so that it can be processed better by save()
-                    var0 = tk.StringVar(value=str(v0))
-                    var1 = tk.IntVar(value=int(v1))
-                    cmd.save([var0, var1])
-
-                    self.listbox_add(cmd)
-                if name == "Hold":
-                    cmd = Hold()
-
-                    var0 = tk.StringVar(value=str(v0))
-                    var1 = tk.IntVar(value=int(v1))
-                    cmd.save([var0, var1])
-
-                    self.listbox_add(cmd)
-                if name == "Press":
-                    cmd = Press()
-                    
-                    var0 = tk.StringVar(value=str(v0))
-                    cmd.save([var0])
-
-                    self.listbox_add(cmd)
-                if name == "Release":
-                    cmd = Release()
-                    
-                    var0 = tk.StringVar(value=str(v0))
-                    cmd.save([var0])
-
-                    self.listbox_add(cmd)
-                if name == "Type":
-                    cmd = Type()
-                    
-                    var0 = tk.StringVar(value=str(v0))
-                    cmd.save([var0])
-
-                    self.listbox_add(cmd)
-                if name == "Move Mouse":
-                    cmd = MoveMouse()
-                    
-                    var0 = tk.IntVar(value=int(v0))
-                    var1 = tk.IntVar(value=int(v1))
-                    cmd.save([var0, var1])
-
-                    self.listbox_add(cmd)
-                if name == "Scroll Mouse":
-                    cmd = Scroll()
-
-                    var0 = tk.IntVar(value=int(v0))
-                    var1 = tk.StringVar(value=str(v1))
-                    cmd.save([var0, var1])
-
-                    self.listbox_add(cmd)
-                if name == "Sleep":
-                    cmd = Sleep()
-                    
-                    var0 = tk.IntVar(value=int(v0))
-                    cmd.save([var0])
-
-                    self.listbox_add(cmd)
-
-        except FileNotFoundError:
-            pass
-
-    def import_txt(self):
-        path = fd.askopenfilename()
+    def import_txt(self): #import a txt file as a program
+        path = fd.askopenfilename() #os ui to ask for file, returns file path as string
         try:
             if len(path.removesuffix(".txt")) == len(path): #check if the path is NOT a .csv file
                 raise FileNotFoundError()
@@ -1030,7 +973,8 @@ class Macro:
 
             command 1
             command 2
-            ...
+            command 3
+            etc.
             '''
             #keep removing first item of list[str] until we get to the actual commands
             title = text.pop(0)
@@ -1118,20 +1062,21 @@ class Macro:
 
                         self.listbox_add(cmd)
                 
-                except TypeError: #just dont add it lols
+                except TypeError: #just dont add it if theres a casting error
                     continue
 
-        except FileNotFoundError:
+        except FileNotFoundError: #if the file is not found, just stop
             pass
 
-    def export_txt(self):
+    def export_txt(self): #writes program to txt file at designated directory
         '''
         Title
         wait
 
         command 1
         command 2
-        ...
+        command 3
+        etc.
         '''
 
         #file name = title of macro
@@ -1158,6 +1103,5 @@ class Macro:
         file = open(filepath, "w")
         for i in text:
             file.write(i + "\n")
-
 
 Macro() #start the GUI
