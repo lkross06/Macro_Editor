@@ -349,23 +349,12 @@ class Macro:
         # listener for mouse
         mouselistener = mouse.Listener(on_move=self.update_mouse)
         mouselistener.start()
-        #hotkeys (standard commands for osx and windows)
-        hotkeys = keyboard.GlobalHotKeys({
-        '<cmd>+c': self.copy,
-        '<cmd>+v': self.paste,
-        '<cmd>+x': self.cut,
-        '<ctrl>+c': self.copy,
-        '<ctrl>+v': self.paste,
-        '<ctrl>+x': self.cut
-        })
-        hotkeys.start()
 
         #start the main loop
         self.root.mainloop()
 
         #stop thread after loop closes
         mouselistener.stop()
-        hotkeys.stop()
 
     def commands_tab(self): #the main page of the notebook widget
         tab = Frame(self.notebook)
@@ -385,8 +374,8 @@ class Macro:
         self.list = tk.Listbox(tab, selectmode=tk.EXTENDED)
         self.list.grid(row=0, rowspan=4, column=0, sticky="NSEW", padx=5, pady=5)
         self.list.bind("<<ListboxSelect>>", self.listbox_select)
-        self.list.bind("<Enter>", self.toggle_inlistbox)
-        self.list.bind("<Leave>", self.toggle_inlistbox)
+        self.list.bind("<Enter>", self.listbox_toggle)
+        self.list.bind("<Leave>", self.listbox_toggle)
 
         #for metrics relating to inputs and commands
         metricframe = LabelFrame(tab, text="Metrics", width=50)
@@ -468,17 +457,6 @@ class Macro:
 
         self.notebook.add(tab, text="Commands") #add to notebook
 
-    def update_program(self): #update program metrics from Tk Vars
-        self.root.title(self.titlevar.get())
-        self.wait = self.waitvar.get()
-
-    def toggle_inlistbox(self, event): #toggle when the mouse is over the listbox (and items can be selected)
-        self.inlistbox = not(self.inlistbox)
-
-    def update_mouse(self, x, y): #update mouse position from listener
-        mousepos = (int(x), int(y))
-        self.mousevar.set("Mouse Position: " + str(mousepos))
-
     def history_tab(self): #create history page for notebook
         tab = Frame(self.notebook)
         tab.grid()
@@ -533,6 +511,37 @@ class Macro:
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Edit", menu=edit_menu)
         menubar.add_cascade(label="Add", menu=add_menu)
+    
+    def load_curr(self, i): #update the GUI to correctly handle the current seletion (at index i)
+        self.curr = i
+
+        #delete current manage tab children
+        for i in self.edit.winfo_children():
+            i.destroy()
+
+        #reset vals
+        self.vals = []
+
+        if self.curr != None:
+            #load the new one
+            if self.commands[self.curr].name == "Click":
+                self.load_click()
+            if self.commands[self.curr].name == "Hold":
+                self.load_hold()
+            if self.commands[self.curr].name == "Press":
+                self.load_press()
+            if self.commands[self.curr].name == "Release":
+                self.load_release()
+            if self.commands[self.curr].name == "Type":
+                self.load_type()
+            if self.commands[self.curr].name == "Move Mouse":
+                self.load_movemouse()
+            if self.commands[self.curr].name == "Scroll Mouse":
+                self.load_scroll()
+            if self.commands[self.curr].name == "Sleep":
+                self.load_sleep()
+        else:
+            self.load_editdefault()
 
     def load_editsave(self, frame): #adds two buttons to the bottom of a command manage labelframe
         #now do the buttons
@@ -545,17 +554,14 @@ class Macro:
     def load_editdefault(self): #default frame for when no command is selected
         none = Label(self.edit, text="No Command Selected")
         none.grid(row=1, column=1) #3x3 grid, so this label is in the middle
-            
 
-    def listbox_select(self, event): #handles a new stock being selected in listbox
-        curr = self.list.curselection() #returns a tuple
-        if self.inlistbox: #only allow changes if in the listbox
-            if len(curr) == 1: #single selection
-                index = curr[0] #since the listbox only allows single selection, the tuple only has 1 item
-            else: #either multiple selection or no selection (you cant edit then)
-                index = None
-            self.load_curr(index)
+    def update_program(self): #update program metrics from Tk Vars
+        self.root.title(self.titlevar.get())
+        self.wait = self.waitvar.get()
 
+    def update_mouse(self, x, y): #update mouse position from listener
+        mousepos = (int(x), int(y))
+        self.mousevar.set("Mouse Position: " + str(mousepos))
 
     def update_exectime(self): #re-calculates execution time of program
         sec = 0
@@ -570,17 +576,6 @@ class Macro:
 
         #now set the label to sec
         self.exectime.set("Execution Time: " + str(sec) + "s")
-
-    def run(self): #run the program!!
-        for i in range(0, len(self.commands)):
-            cmd = self.commands[i]
-            if cmd.usekeydict: #pass in keydict if the command needs it 
-               cmd.run(self.keydict)
-            else:
-                cmd.run()
-
-            if i < len(self.commands) - 1: #sleep for self.wait time if its not the last command
-                t.sleep(self.wait)
 
     def delete(self): #deletes a selection of commands in the listbox
         curr = self.list.curselection()
@@ -629,6 +624,10 @@ class Macro:
             #update execution time
             self.update_exectime()
     
+    def cut(self): #copies selection and deletes it
+        self.copy()
+        self.delete()
+    
     def clear(self): #reset all dynamic vals
         self.curr = None
         self.list.delete(0, self.list.size())
@@ -642,10 +641,33 @@ class Macro:
         self.load_curr(self.curr)
         self.update_exectime()
         self.update_program()
+    
+    def save(self): #save the edits to the current command
+        cmd = self.commands[self.curr]
 
-    def cut(self): #copies selection and deletes it
-        self.copy()
-        self.delete()
+        #save changes
+        cmd.save(self.vals)
+        
+        #update label
+        self.list.delete(self.curr)
+        self.list.insert(self.curr, cmd.label())
+
+        #update execution time
+        self.update_exectime()
+    
+    def run(self): #run the program!!
+        for i in range(0, len(self.commands)):
+            cmd = self.commands[i]
+            if cmd.usekeydict: #pass in keydict if the command needs it 
+               cmd.run(self.keydict)
+            else:
+                cmd.run()
+
+            if i < len(self.commands) - 1: #sleep for self.wait time if its not the last command
+                t.sleep(self.wait)
+    
+    def listbox_toggle(self, event): #toggle when the mouse is over the listbox (and items can be selected)
+        self.inlistbox = not(self.inlistbox)
 
     def listbox_delete(self): #delete the selection from the listbox
         if self.curr != None:
@@ -656,6 +678,22 @@ class Macro:
             self.update_exectime()
 
             self.load_curr(None)
+    
+    def listbox_add(self, x): #add command to the listbox
+        self.list.insert(len(self.commands), x.label())
+        self.commands.append(x)
+
+        #now update execution time
+        self.update_exectime()
+
+    def listbox_select(self, event): #handles a new stock being selected in listbox
+        curr = self.list.curselection() #returns a tuple
+        if self.inlistbox: #only allow changes if in the listbox
+            if len(curr) == 1: #single selection
+                index = curr[0] #since the listbox only allows single selection, the tuple only has 1 item
+            else: #either multiple selection or no selection (you cant edit then)
+                index = None
+            self.load_curr(index)
 
     def click(self): #create new click command
         cmd = Click()
@@ -900,57 +938,6 @@ class Macro:
         step3.grid(row=0, column=2)
 
         self.load_editsave(frame) #now put the delete and save button at the bottom
-
-    def listbox_add(self, x): #add command to the listbox
-        self.list.insert(len(self.commands), x.label())
-        self.commands.append(x)
-
-        #now update execution time
-        self.update_exectime()
-
-    def load_curr(self, i): #update the GUI to correctly handle the current seletion (at index i)
-        self.curr = i
-
-        #delete current manage tab children
-        for i in self.edit.winfo_children():
-            i.destroy()
-
-        #reset vals
-        self.vals = []
-
-        if self.curr != None:
-            #load the new one
-            if self.commands[self.curr].name == "Click":
-                self.load_click()
-            if self.commands[self.curr].name == "Hold":
-                self.load_hold()
-            if self.commands[self.curr].name == "Press":
-                self.load_press()
-            if self.commands[self.curr].name == "Release":
-                self.load_release()
-            if self.commands[self.curr].name == "Type":
-                self.load_type()
-            if self.commands[self.curr].name == "Move Mouse":
-                self.load_movemouse()
-            if self.commands[self.curr].name == "Scroll Mouse":
-                self.load_scroll()
-            if self.commands[self.curr].name == "Sleep":
-                self.load_sleep()
-        else:
-            self.load_editdefault()
-
-    def save(self): #save the edits to the current command
-        cmd = self.commands[self.curr]
-
-        #save changes
-        cmd.save(self.vals)
-        
-        #update label
-        self.list.delete(self.curr)
-        self.list.insert(self.curr, cmd.label())
-
-        #update execution time
-        self.update_exectime()
 
     def import_txt(self): #import a txt file as a program
         path = fd.askopenfilename() #os ui to ask for file, returns file path as string
