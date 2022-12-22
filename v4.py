@@ -284,7 +284,7 @@ REPEAT
 vals[0] = how many times to repeat
 vals[1] = how many lines after to repeat
 '''
-class Repeat(Command):
+class Repeat(Command): #TODO: indent the lines below on listbox?
     def __init__(self):
         Command.__init__(self, "Repeat", [1, 1], False, "Other") #default value: sleep for 1 second
 
@@ -462,13 +462,14 @@ class Macro:
         self.edit.grid(row=2, column=1, sticky='NESW', padx=5, pady=5)
         self.edit.grid_propagate(False) #dont let children change widget size
 
-        #set up 3x3 non-stretchy grid
+        #set up 2x5 non-stretchy grid
         self.edit.rowconfigure(0)
         self.edit.rowconfigure(1)
-        self.edit.rowconfigure(2)
         self.edit.columnconfigure(0)
         self.edit.columnconfigure(1)
         self.edit.columnconfigure(2)
+        self.edit.columnconfigure(3)
+        self.edit.columnconfigure(4)
 
         self.load_editdefault() #load the default edit frame (i.e. when no command is selected)
 
@@ -566,14 +567,14 @@ class Macro:
     def load_editsave(self, frame): #adds two buttons to the bottom of a command manage labelframe
         #now do the buttons
         delbutton = Button(frame, command=self.delete, text="Delete")
-        delbutton.grid(row=2, column=0, sticky="NS")
+        delbutton.grid(row=1, column=0)
 
         savebutton = Button(frame, command=self.save, text="Save")
-        savebutton.grid(row=2, column=1, sticky="NS")
+        savebutton.grid(row=1, column=1)
 
     def load_editdefault(self): #default frame for when no command is selected
         none = Label(self.edit, text="No Command Selected")
-        none.grid(row=1, column=1) #3x3 grid, so this label is in the middle
+        none.grid(row=0, column=0) #3x3 grid, so this label is in the middle
     
     def load_runlist(self):
         '''
@@ -839,34 +840,32 @@ class Macro:
     def load_click(self): #load click frame onto edit frame
         frame = self.edit
 
-        #vals[0]
-        key1 = Label(frame, text="Click")
-        key1.grid(row=0, column=0)
+        c0 = Label(frame, text="click")
+        c0.grid(row=0, column=0)
 
         val0 = tk.StringVar()
         val0.set(self.commands[self.curr].vals[0]) # put default val
         self.vals.append(val0)
 
-        key2 = Combobox(frame, textvariable=self.vals[0])
+        c1 = Combobox(frame, textvariable=self.vals[0], width=5)
+        c1vals = list(self.keydict.keys()) #all the labels
+        c1["values"] = c1vals
+        c1.state(["readonly"])
+        c1.grid(row=0, column=1)
 
-        key2values = list(self.keydict.keys()) #all the labels
-        key2["values"] = key2values
+        c2 = Label(frame, text="")
+        c2.grid(row=0, column=2)
 
-        key2.state(["readonly"])
-
-        key2.grid(row=0, column=1)
-
-        #vals[1]
         val1 = tk.IntVar()
         val1.set(self.commands[self.curr].vals[1])
         self.vals.append(val1)
 
-        repeat1 = Label(frame, text="Repeat")
-        repeat1.grid(row=1, column=0)
-        repeat2 = Spinbox(frame, from_=1, to=100, textvariable=self.vals[1])
-        repeat2.grid(row=1, column=1)
-        repeat3 = Label(frame, text="times.")
-        repeat3.grid(row=1, column=2)
+        c3 = Spinbox(frame, from_=1, to=100, textvariable=self.vals[1], width=5)
+        c3.grid(row=0, column=3)
+
+        c4 = Label(frame, text=" times")
+        c4.grid(row=0, column=4)
+        
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
@@ -877,34 +876,31 @@ class Macro:
     def load_hold(self): #load the hold frame onto the edit frame
         frame = self.edit
 
-        #vals[0]
-        key1 = Label(frame, text="Hold")
-        key1.grid(row=0, column=0)
+        c0 = Label(frame, text="hold ")
+        c0.grid(row=0, column=0)
 
         val0 = tk.StringVar()
-        val0.set(self.commands[self.curr].vals[0])
+        val0.set(self.commands[self.curr].vals[0]) # put default val
         self.vals.append(val0)
 
-        key2 = Combobox(frame, textvariable=self.vals[0])
+        c1 = Combobox(frame, textvariable=self.vals[0], width=5)
+        c1vals = list(self.keydict.keys()) #all the labels
+        c1["values"] = c1vals
+        c1.state(["readonly"])
+        c1.grid(row=0, column=1)
 
-        key2values = list(self.keydict.keys()) #all the labels
-        key2["values"] = key2values
+        c2 = Label(frame, text=" for ")
+        c2.grid(row=0, column=2)
 
-        key2.state(["readonly"])
-
-        key2.grid(row=0, column=1)
-
-        #vals[1]
         val1 = tk.IntVar()
         val1.set(self.commands[self.curr].vals[1])
         self.vals.append(val1)
 
-        repeat1 = Label(frame, text="Hold for")
-        repeat1.grid(row=1, column=0)
-        repeat2 = Spinbox(frame, from_=1, to=100, textvariable=self.vals[1])
-        repeat2.grid(row=1, column=1)
-        repeat3 = Label(frame, text="seconds.")
-        repeat3.grid(row=1, column=2)
+        c3 = Spinbox(frame, from_=1, to=100, textvariable=self.vals[1], width=5)
+        c3.grid(row=0, column=3)
+
+        c4 = Label(frame, text=" seconds")
+        c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
@@ -915,22 +911,27 @@ class Macro:
     def load_press(self): #load press frame onto edit frame
         frame = self.edit
 
-        #vals[0]
-        key1 = Label(frame, text="Press")
-        key1.grid(row=0, column=0)
+        c0 = Label(frame, text="press ")
+        c0.grid(row=0, column=0)
 
         val0 = tk.StringVar()
-        val0.set(self.commands[self.curr].vals[0])
+        val0.set(self.commands[self.curr].vals[0]) # put default val
         self.vals.append(val0)
 
-        key2 = Combobox(frame, textvariable=self.vals[0])
+        c1 = Combobox(frame, textvariable=self.vals[0], width=5)
+        c1vals = list(self.keydict.keys()) #all the labels
+        c1["values"] = c1vals
+        c1.state(["readonly"])
+        c1.grid(row=0, column=1)
 
-        key2values = list(self.keydict.keys()) #all the labels
-        key2["values"] = key2values
+        c2 = Label(frame, text="")
+        c2.grid(row=0, column=2)
 
-        key2.state(["readonly"])
+        c3 = Label(frame, text="")
+        c3.grid(row=0, column=3)
 
-        key2.grid(row=0, column=1)
+        c4 = Label(frame, text="")
+        c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
@@ -941,22 +942,27 @@ class Macro:
     def load_release(self): #load release frame onto edit frame
         frame = self.edit
 
-        #vals[0]
-        key1 = Label(frame, text="Release")
-        key1.grid(row=0, column=0)
+        c0 = Label(frame, text="release ")
+        c0.grid(row=0, column=0)
 
         val0 = tk.StringVar()
-        val0.set(self.commands[self.curr].vals[0])
+        val0.set(self.commands[self.curr].vals[0]) # put default val
         self.vals.append(val0)
 
-        key2 = Combobox(frame, textvariable=self.vals[0])
+        c1 = Combobox(frame, textvariable=self.vals[0], width=5)
+        c1vals = list(self.keydict.keys()) #all the labels
+        c1["values"] = c1vals
+        c1.state(["readonly"])
+        c1.grid(row=0, column=1)
 
-        key2values = list(self.keydict.keys()) #all the labels
-        key2["values"] = key2values
+        c2 = Label(frame, text="")
+        c2.grid(row=0, column=2)
 
-        key2.state(["readonly"])
+        c3 = Label(frame, text="")
+        c3.grid(row=0, column=3)
 
-        key2.grid(row=0, column=1)
+        c4 = Label(frame, text="")
+        c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
@@ -967,16 +973,24 @@ class Macro:
     def load_type(self): #load type frame onto edit frame
         frame = self.edit
 
-        #vals[0]
-        key1 = Label(frame, text="Type")
-        key1.grid(row=0, column=0)
+        c0 = Label(frame, text="type ")
+        c0.grid(row=0, column=0)
 
         val0 = tk.StringVar()
-        val0.set(self.commands[self.curr].vals[0])
+        val0.set(self.commands[self.curr].vals[0]) # put default val
         self.vals.append(val0)
 
-        key2 = Entry(frame, textvariable=self.vals[0])
-        key2.grid(row=0, column=1)
+        c1 = Entry(frame, textvariable=self.vals[0], width=5)
+        c1.grid(row=0, column=1)
+
+        c2 = Label(frame, text="")
+        c2.grid(row=0, column=2)
+
+        c3 = Label(frame, text="")
+        c3.grid(row=0, column=3)
+
+        c4 = Label(frame, text="")
+        c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
@@ -987,28 +1001,31 @@ class Macro:
     def load_movemouse(self): #load movemouse frame onto edit frame
         frame = self.edit
 
-        #vals[0]
-        x1 = Label(frame, text="Move mouse x to")
-        x1.grid(row=0, column=0)
+        c0 = Label(frame, text="move mouse to (")
+        c0.grid(row=0, column=0)
 
         val0 = tk.IntVar()
         val0.set(self.commands[self.curr].vals[0])
         self.vals.append(val0)
+        
         #x bounds: 0 to width of screen
-        x2 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.root.winfo_screenwidth()) 
-        x2.grid(row=0, column=1)
+        c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.root.winfo_screenwidth(), width=5) 
+        c1.grid(row=0, column=1)
 
-        #vals[1]
-        y1 = Label(frame, text="Move mouse y to")
-        y1.grid(row=1, column=0)
+        c2 = Label(frame, text=", ")
+        c2.grid(row=0, column=2)
 
         val1 = tk.IntVar()
         val1.set(self.commands[self.curr].vals[1])
         self.vals.append(val1)
 
         #y bounds: 0 to height of screen
-        y2 = Spinbox(frame, textvariable=self.vals[1], from_=1, to=self.root.winfo_screenheight())
-        y2.grid(row=1, column=1)
+        c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.root.winfo_screenheight(), width=5) 
+        c3.grid(row=0, column=3)
+
+        #y bounds: 0 to height of screen
+        c4 = Label(frame, text=")")
+        c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
@@ -1019,36 +1036,30 @@ class Macro:
     def load_scroll(self): #load scroll frame onto edit frame
         frame = self.edit
 
-        #vals[0]
-        step1 = Label(frame, text="Scroll")
-        step1.grid(row=0, column=0)
+        c0 = Label(frame, text="scroll mouse ")
+        c0.grid(row=0, column=0)
 
         val0 = tk.IntVar()
         val0.set(self.commands[self.curr].vals[0])
         self.vals.append(val0)
 
-        step2 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100)
-
-        step2.grid(row=0, column=1)
+        c1 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100, width=5)
+        c1.grid(row=0, column=1)
         
-        step3 = Label(frame, text="steps.")
-        step3.grid(row=0, column=2)
+        c2 = Label(frame, text=" steps ")
+        c2.grid(row=0, column=2)
 
-        #vals[1]
         val1 = tk.StringVar()
         val1.set(self.commands[self.curr].vals[1])
         self.vals.append(val1)
 
-        d1 = Label(frame, text="Scroll in")
-        d1.grid(row=1, column=0)
+        c3 = Combobox(frame, textvariable=self.vals[1], width=5)
+        c3["values"] = ["up", "down", "right", "left"]
+        c3.state(["readonly"])
+        c3.grid(row=0, column=3)
 
-        d2 = Combobox(frame, textvariable=self.vals[1])
-        d2["values"] = ["up", "down", "right", "left"]
-        d2.state(["readonly"])
-        d2.grid(row=1, column=1)
-
-        d3 = Label(frame, text="direction.")
-        d3.grid(row=1, column=2)
+        c4 = Label(frame, text="")
+        c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the delete and save button at the bottom
 
@@ -1060,19 +1071,24 @@ class Macro:
         frame = self.edit
 
         #vals[0]
-        step1 = Label(frame, text="Sleep for")
-        step1.grid(row=0, column=0)
+        c0 = Label(frame, text="sleep for ")
+        c0.grid(row=0, column=0)
 
         val0 = tk.IntVar()
         val0.set(self.commands[self.curr].vals[0])
         self.vals.append(val0)
 
-        step2 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100)
-
-        step2.grid(row=0, column=1)
+        c1 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100, width=5)
+        c1.grid(row=0, column=1)
         
-        step3 = Label(frame, text="seconds.")
-        step3.grid(row=0, column=2)
+        c2 = Label(frame, text=" seconds")
+        c2.grid(row=0, column=2)
+
+        c3 = Label(frame, text="")
+        c3.grid(row=0, column=3)
+
+        c4 = Label(frame, text="")
+        c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the delete and save button at the bottom
 
@@ -1083,34 +1099,29 @@ class Macro:
     def load_repeat(self): #load repeat frame onto edit frame
         frame = self.edit
 
-        #vals[0]
-        step1 = Label(frame, text="Repeat ")
-        step1.grid(row=0, column=0)
+        c0 = Label(frame, text="repeat next ")
+        c0.grid(row=0, column=0)
 
         val0 = tk.IntVar()
         val0.set(self.commands[self.curr].vals[0])
         self.vals.append(val0)
 
-        step2 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100)
-
-        step2.grid(row=0, column=1)
-        
-        step3 = Label(frame, text=" times.")
-        step3.grid(row=0, column=2)
-
-        #vals[1]
         val1 = tk.IntVar()
         val1.set(self.commands[self.curr].vals[1])
         self.vals.append(val1)
 
-        d1 = Label(frame, text="Repeat the next ")
-        d1.grid(row=1, column=0)
+        c1 = Spinbox(frame, textvariable=self.vals[1], from_=1, to=100, width=5)
+        c1.grid(row=0, column=1)
+        
+        c2 = Label(frame, text=" lines ")
+        c2.grid(row=0, column=2)
 
-        d2 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=100)
-        d2.grid(row=1, column=1)
+        c3 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=100, width=5)
+        c3.grid(row=0, column=3)
 
-        d3 = Label(frame, text=" lines.")
-        d3.grid(row=1, column=2)
+        c4 = Label(frame, text=" times")
+        c4.grid(row=0, column=4)
+
 
         self.load_editsave(frame) #now put the delete and save button at the bottom
 
@@ -1240,6 +1251,8 @@ class Macro:
         command 3
         etc.
         '''
+
+        #TODO: implement REPEAT for import/export
 
         #file name = title of macro
         filename = self.title.replace(" ", "_").replace("/", "_").replace(".", "_") + ".txt"
