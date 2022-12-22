@@ -48,7 +48,7 @@ class Click(Command):
         self.usekeydict = True #tells Macro.run() if it should pass the keydictionary as a parameter
 
     def label(self):
-        return "click [" + self.vals[0] + "] " + str(self.vals[1]) + " time(s)"
+        return "click [" + self.vals[0] + "] " + str(self.vals[1]) + " times"
 
     def save(self, vals): #returns true if successful, false otherwise
         #vals input is an array of Tk Vars (because they update dynamically), so we gotta .get() to get their values
@@ -467,7 +467,7 @@ class Macro:
 
         #text box
         self.historylog = tk.Text(tab)
-        self.historylog.grid(row=0, sticky="NS")
+        self.historylog.grid(row=0, sticky="NESW")
 
     def menu(self):
         #make a menu bar widget (container for the cascade menus at the top of the window)
@@ -545,7 +545,7 @@ class Macro:
 
     def load_editsave(self, frame): #adds two buttons to the bottom of a command manage labelframe
         #now do the buttons
-        delbutton = Button(frame, command=self.listbox_delete, text="Delete")
+        delbutton = Button(frame, command=self.delete, text="Delete")
         delbutton.grid(row=2, column=0, sticky="NS")
 
         savebutton = Button(frame, command=self.save, text="Save")
@@ -576,13 +576,47 @@ class Macro:
 
         #now set the label to sec
         self.exectime.set("Execution Time: " + str(sec) + "s")
+    
+    def update_history(self, idx, val): #gets the idx from the dictionary and replaces _ with val
+        labels = { #the _ will be replaced with values depending on label
+            "copy":"copied _ commands",
+            "paste":"pasted _ commands",
+            "cut":"cut _ commands",
+            "delete":"deleted _ commands",
+            "clear":"cleared program",
+            "run":"ran _ commands",
+            "import":"imported program from _",
+            "export":"exported program to _",
+            "add":"added _ command",
+            "edit":"edited _ command"
+        }
+        label = labels[idx].replace("_", str(val))
+        self.historylog.insert(tk.END, label + "\n")
 
-    def delete(self): #deletes a selection of commands in the listbox
+
+    def delete(self, cut = False): #deletes a selection of commands in the listbox
         curr = self.list.curselection()
-        for i in range(0, len(curr)): #iterates through n elements to delete (delete the labels)
-            self.commands.pop(curr[0]) #delete from the first element in selection
+        del_len = len(curr)
+
+        if del_len < 1: #the user is using the button in the edit menu OR nothing is selected for menu widget
+            if self.curr != None:
+                curr = self.curr
+
+                self.commands.pop(curr)
+                self.list.delete(curr)
+
+                #add to history log if its not part of a cut (thats handled separately)
+                if not(cut):
+                    self.update_history("delete", 1)
+        else: #the user is using the menu widget, so we can just delete the current selection
+            for i in range(0, len(curr)): #iterates through n elements to delete (delete the labels)
+                self.commands.pop(curr[0]) #delete from the first element in selection
         
-        self.list.delete(curr[0], curr[len(curr) - 1]) #delete from listbox
+            self.list.delete(curr[0], curr[len(curr) - 1]) #delete from listbox
+
+            #add to history log if its not part of a cut (thats handled separately)
+            if not(cut):
+                self.update_history("delete", del_len)
     
         #update the program (that nothing is selected)
         self.load_curr(None)
@@ -590,10 +624,15 @@ class Macro:
         #update execution time
         self.update_exectime()
 
-    def copy(self): #copy commands indices to the clipboard
+    def copy(self, cut = False): #copy commands indices to the clipboard
         self.clipboard = [] #reset clipboard
         for i in self.list.curselection():
             self.clipboard.append(self.commands[i]) #add everything to keyboard
+        
+        #add to history log if anything was copied and if its not part of a cut (thats handled separately)
+        clipboard_length = len(self.list.curselection())
+        if clipboard_length > 0 and not(cut):
+            self.update_history("copy", clipboard_length)
 
     def paste(self): #paste all indices from clipboard after current selection
         if len(self.clipboard) > 0:
@@ -623,13 +662,25 @@ class Macro:
             
             #update execution time
             self.update_exectime()
+            
+            #add to history log
+            self.update_history("paste", len(self.clipboard))
     
     def cut(self): #copies selection and deletes it
-        self.copy()
-        self.delete()
+        #store length for history log
+        cut_len = len(self.list.curselection())
+
+        #tell the functions that they are part of a cut command
+        self.copy(True)
+        self.delete(True)
+
+        #now add to history log
+        self.update_history("cut", cut_len)
+
     
     def clear(self): #reset all dynamic vals
         self.curr = None
+        self.program_len = self.list.size() #store for history log
         self.list.delete(0, self.list.size())
         self.commands = []
         self.vals = []
@@ -641,6 +692,9 @@ class Macro:
         self.load_curr(self.curr)
         self.update_exectime()
         self.update_program()
+
+        #update history log
+        self.update_history("clear", int(self.program_len))
     
     def save(self): #save the edits to the current command
         cmd = self.commands[self.curr]
@@ -654,6 +708,9 @@ class Macro:
 
         #update execution time
         self.update_exectime()
+
+        #update history log
+        self.update_history("edit", str(cmd.name).lower())
     
     def run(self): #run the program!!
         for i in range(0, len(self.commands)):
@@ -665,19 +722,21 @@ class Macro:
 
             if i < len(self.commands) - 1: #sleep for self.wait time if its not the last command
                 t.sleep(self.wait)
+        
+        #update history log
+        self.update_history("run", len(self.commands))
     
     def listbox_toggle(self, event): #toggle when the mouse is over the listbox (and items can be selected)
         self.inlistbox = not(self.inlistbox)
 
-    def listbox_delete(self): #delete the selection from the listbox
-        if self.curr != None:
-            self.list.delete(self.curr)
-            self.commands.pop(self.curr)
+    # def listbox_delete(self): #delete the selection from the listbox
+    #     if self.curr != None:
+    #         
 
-            #update execution time
-            self.update_exectime()
+    #         #update execution time
+    #         self.update_exectime()
 
-            self.load_curr(None)
+    #         self.load_curr(None)
     
     def listbox_add(self, x): #add command to the listbox
         self.list.insert(len(self.commands), x.label())
@@ -685,6 +744,9 @@ class Macro:
 
         #now update execution time
         self.update_exectime()
+
+        #update history log
+        self.update_history("add", str(x.name).lower())
 
     def listbox_select(self, event): #handles a new stock being selected in listbox
         curr = self.list.curselection() #returns a tuple
