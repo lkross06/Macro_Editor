@@ -13,10 +13,12 @@ import os
 generic class for command objects
 '''
 class Command:
-    def __init__(self, name, vals):
+    def __init__(self, name, vals, usekeydict, typestr):
         self.name = str(name) #identification var
         self.vals = vals #values to use to run (dynamic size, based on command)
         self.intbounds = [1, 100] #bounds for commands that use int values (i.e. hold for n seconds)
+        self.usekeydict = usekeydict
+        self.type = typestr
 
     def save(self, vals):
         self.vals = vals
@@ -40,12 +42,10 @@ vals[1] = (int) how many times to click
 '''
 class Click(Command):
     def __init__(self):
-        Command.__init__(self, "Click", ["a", 1]) #default values: click a, 1 time
+        Command.__init__(self, "Click", ["a", 1], True, "Button") #default values: click a, 1 time
         #we need both controllers bc the user can click keys or mouse buttons
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
-        self.type = "Button" #identification var
-        self.usekeydict = True #tells Macro.run() if it should pass the keydictionary as a parameter
 
     def label(self):
         return "click [" + self.vals[0] + "] " + str(self.vals[1]) + " times"
@@ -75,11 +75,9 @@ vals[1] = how long (sec) to hold it
 '''
 class Hold(Command):
     def __init__(self):
-        Command.__init__(self, "Hold", ["a", 1]) #default values: hold a for 1 second
+        Command.__init__(self, "Hold", ["a", 1], True, "Button") #default values: hold a for 1 second
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
-        self.type = "Button"
-        self.usekeydict = True
 
     def label(self):
         return "hold [" + self.vals[0] + "] for " + str(self.vals[1]) + " seconds"
@@ -112,11 +110,9 @@ vals[0] = string  to press
 '''
 class Press(Command):
     def __init__(self):
-        Command.__init__(self, "Press", ["a"]) #default value: press a
+        Command.__init__(self, "Press", ["a"], True, "Button") #default value: press a
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
-        self.type = "Button"
-        self.usekeydict = True
 
     def label(self):
         return "press [" + self.vals[0] + "]"
@@ -139,11 +135,9 @@ vals[0] = string  to release
 '''
 class Release(Command):
     def __init__(self):
-        Command.__init__(self, "Release", ["a"]) #default value: release a
+        Command.__init__(self, "Release", ["a"], True, "Button") #default value: release a
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
-        self.type = "Button"
-        self.usekeydict = True
 
     def label(self):
         return "release [" + self.vals[0] + "]"
@@ -166,10 +160,8 @@ vals[0] = string (1+ character) to type
 '''
 class Type(Command):
     def __init__(self):
-        Command.__init__(self, "Type", ["abc"]) #default value: type "abc"
+        Command.__init__(self, "Type", ["abc"], False, "Button") #default value: type "abc"
         self.controller = keyboard.Controller() #you cant type mouse buttons, so we just need keyboard
-        self.type = "Button"
-        self.usekeydict = False #the user inputs the string to type, so we dont need to convert anything
 
     def label(self):
         return "type " + self.vals[0]
@@ -190,9 +182,7 @@ vals[1] = y coord to move to (0 <= y <= height)
 '''
 class MoveMouse(Command):
     def __init__(self):
-        Command.__init__(self, "Move Mouse", [0, 0]) #default values: move mouse to (0,0) (top left)
-        self.type = "Mouse"
-        self.usekeydict = False
+        Command.__init__(self, "Move Mouse", [0, 0], False, "Mouse") #default values: move mouse to (0,0) (top left)
         self.controller = mouse.Controller()
 
     def label(self):
@@ -218,10 +208,8 @@ vals[1] = direction (up, right, down, left)
 '''
 class Scroll(Command):
     def __init__(self):
-        Command.__init__(self, "Scroll Mouse", [1, "down"]) #default values: scroll mouse 1 step down
+        Command.__init__(self, "Scroll Mouse", [1, "down"], False, "Mouse") #default values: scroll mouse 1 step down
         self.controller = mouse.Controller()
-        self.type = "Mouse"
-        self.usekeydict = False
 
     def label(self):
         step = self.vals[0]
@@ -272,9 +260,7 @@ vals[0] = sec to sleep
 '''
 class Sleep(Command):
     def __init__(self):
-        Command.__init__(self, "Sleep", [1]) #default value: sleep for 1 second
-        self.type = "Other"
-        self.usekeydict = False
+        Command.__init__(self, "Sleep", [1], False, "Other") #default value: sleep for 1 second
 
     def label(self):
         return "sleep for " + str(self.vals[0]) + " seconds"
@@ -292,6 +278,36 @@ class Sleep(Command):
 
     def run(self):
         t.sleep(self.vals[0]) #easy peasy
+
+'''
+REPEAT
+vals[0] = how many times to repeat
+vals[1] = how many lines after to repeat
+'''
+class Repeat(Command):
+    def __init__(self):
+        Command.__init__(self, "Repeat", [1, 1], False, "Other") #default value: sleep for 1 second
+
+    def label(self):
+        return "repeat next " + str(self.vals[1]) + " lines " + str(self.vals[0]) + " times"
+
+    def save(self, vals):
+        rep = vals[0].get()
+        lines = vals[1].get()
+
+        self.checkintbounds(rep) #check int bounds
+        self.checkintbounds(lines)
+
+        self.vals = [int(rep), int(lines)]
+        return True
+    
+    def getexectime(self):
+        return 0 #doesnt really matter, not part of runlist
+
+    def run(self, lines):
+        for i in range(0, self.vals[0]):
+            for j in lines:
+                j.run()
         
 '''
 tkinter application to simulate user inputs with pynput (keyboard/mouse)
@@ -301,6 +317,7 @@ class Macro:
         self.commands = [] #list of commands to execute
         self.curr = None #keep track of the index of our current stock
         self.clipboard = [] #keeps track of all objects on clipboard
+        self.intbounds = (0, 100) #TODO: use this
 
         self.title = "Macro Editor" #name of application
         self.wait = 0.5 #seconds in-between each command
@@ -506,6 +523,7 @@ class Macro:
         add_menu.add_command(label="Scroll Mouse", command=self.scroll)
         add_menu.add_separator()
         add_menu.add_command(label="Sleep", command=self.sleep)
+        add_menu.add_command(label="Repeat", command=self.repeat)
 
 
         menubar.add_cascade(label="File", menu=file_menu)
@@ -540,6 +558,8 @@ class Macro:
                 self.load_scroll()
             if self.commands[self.curr].name == "Sleep":
                 self.load_sleep()
+            if self.commands[self.curr].name == "Repeat":
+                self.load_repeat()
         else:
             self.load_editdefault()
 
@@ -554,10 +574,59 @@ class Macro:
     def load_editdefault(self): #default frame for when no command is selected
         none = Label(self.edit, text="No Command Selected")
         none.grid(row=1, column=1) #3x3 grid, so this label is in the middle
+    
+    def load_runlist(self):
+        '''
+        compile the execution list
+
+        if d = repeat next 3 lines 2 times
+        then this is how it would compile:
+
+        self.commands
+        0	a
+        1	b
+        2	c
+        3	d(2)
+        4		e
+        5		f
+        6		g
+        7
+        8
+
+        runlist
+        0	a
+        1	b
+        2	c
+        3   e
+        4	f
+        5	g
+        6	e
+        7	f
+        8	g
+        '''
+        runlist = []
+        for i in range(0, len(self.commands)):
+            cmd = self.commands[i]
+
+            if cmd.name == "Repeat":
+                repeat = cmd.vals[0]
+                lines = cmd.vals[1]
+                for n in range(0, repeat - 1): #runlist will append everything again after, so -1 repeat
+                    for j in range(i + 1, i + lines + 1):
+                        if j < len(self.commands): #only add if its in the list
+                            runlist.append(self.commands[j])
+            else: #omit the repeat commands from running
+                runlist.append(cmd) #if its not a repeat command, just add it
+        
+        return runlist
+
 
     def update_program(self): #update program metrics from Tk Vars
         self.root.title(self.titlevar.get())
         self.wait = self.waitvar.get()
+
+        #update history log
+        self.update_history("program", None) #no val for this entry
 
     def update_mouse(self, x, y): #update mouse position from listener
         mousepos = (int(x), int(y))
@@ -565,13 +634,14 @@ class Macro:
 
     def update_exectime(self): #re-calculates execution time of program
         sec = 0
+        runlist = self.load_runlist() # load the runlist so we have the raw command queue
 
-        for i in range(0, len(self.commands)):
-            cmd = self.commands[i]
+        for i in range(0, len(runlist)):
+            cmd = runlist[i]
             sec += cmd.getexectime() #get execution time of each command
 
             #if its not the last command, then add an extra self.wait to the end
-            if i < len(self.commands) - 1:
+            if i < len(runlist) - 1:
                 sec += self.wait
 
         #now set the label to sec
@@ -588,7 +658,8 @@ class Macro:
             "import":"imported program from _",
             "export":"exported program to _",
             "add":"added _ command",
-            "edit":"edited _ command"
+            "edit":"edited _ command",
+            "program":"updated program details"
         }
         label = labels[idx].replace("_", str(val))
         self.historylog.insert(tk.END, label + "\n")
@@ -694,7 +765,7 @@ class Macro:
         self.update_program()
 
         #update history log
-        self.update_history("clear", int(self.program_len))
+        self.update_history("clear", None) #no val for this entry
     
     def save(self): #save the edits to the current command
         cmd = self.commands[self.curr]
@@ -713,10 +784,14 @@ class Macro:
         self.update_history("edit", str(cmd.name).lower())
     
     def run(self): #run the program!!
-        for i in range(0, len(self.commands)):
-            cmd = self.commands[i]
+        
+        runlist = self.load_runlist() #get the runlist
+
+        for i in range(0, len(runlist)):
+            cmd = runlist[i]
+
             if cmd.usekeydict: #pass in keydict if the command needs it 
-               cmd.run(self.keydict)
+                cmd.run(self.keydict)
             else:
                 cmd.run()
 
@@ -998,6 +1073,44 @@ class Macro:
         
         step3 = Label(frame, text="seconds.")
         step3.grid(row=0, column=2)
+
+        self.load_editsave(frame) #now put the delete and save button at the bottom
+
+    def repeat(self): #create repeat object
+        cmd = Repeat()
+        self.listbox_add(cmd)
+    
+    def load_repeat(self): #load repeat frame onto edit frame
+        frame = self.edit
+
+        #vals[0]
+        step1 = Label(frame, text="Repeat ")
+        step1.grid(row=0, column=0)
+
+        val0 = tk.IntVar()
+        val0.set(self.commands[self.curr].vals[0])
+        self.vals.append(val0)
+
+        step2 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100)
+
+        step2.grid(row=0, column=1)
+        
+        step3 = Label(frame, text=" times.")
+        step3.grid(row=0, column=2)
+
+        #vals[1]
+        val1 = tk.IntVar()
+        val1.set(self.commands[self.curr].vals[1])
+        self.vals.append(val1)
+
+        d1 = Label(frame, text="Repeat the next ")
+        d1.grid(row=1, column=0)
+
+        d2 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=100)
+        d2.grid(row=1, column=1)
+
+        d3 = Label(frame, text=" lines.")
+        d3.grid(row=1, column=2)
 
         self.load_editsave(frame) #now put the delete and save button at the bottom
 
