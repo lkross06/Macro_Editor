@@ -1234,6 +1234,14 @@ class Macro:
                         cmd.save([var0])
 
                         self.listbox_add(cmd)
+                    if name == "Repeat":
+                        cmd = Repeat()
+
+                        var0 = tk.IntVar(value=int(v0))
+                        var1 = tk.IntVar(value=int(v1))
+                        cmd.save([var0, var1])
+
+                        self.listbox_add(cmd)
                 
                 except TypeError: #just dont add it if theres a casting error
                     continue
@@ -1252,7 +1260,7 @@ class Macro:
         etc.
         '''
 
-        #TODO: implement REPEAT for import/export
+        #TODO: update history log
 
         #file name = title of macro
         filename = self.title.replace(" ", "_").replace("/", "_").replace(".", "_") + ".txt"
