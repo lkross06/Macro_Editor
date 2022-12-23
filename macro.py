@@ -723,17 +723,6 @@ class Macro:
     def handle_other_key_release(self, key):
         self.keys.remove(key)
         self.update_key()
-
-    def update_key(self):
-        strkeys = ""
-
-        #format the things to be pressed
-        for i in range(0, len(self.keys)):
-            strkeys += self.keys[i]
-            if i < len(self.keys) - 1: #dont add this on the last one or it looks weird
-                strkeys += "+"
-
-        self.keyvar.set("Keys Pressed: " + strkeys)
     
     def load_curr(self, i): #update the GUI to correctly handle the current seletion (at index i)
         self.curr = i
@@ -828,7 +817,6 @@ class Macro:
         
         return runlist
 
-
     def update_program(self, log = True): #update program metrics from Tk Vars
         self.root.title(self.titlevar.get())
         self.wait = self.waitvar.get()
@@ -843,6 +831,17 @@ class Macro:
     def update_mouse(self, x, y): #update mouse position from listener
         mousepos = (int(x), int(y))
         self.mousevar.set("Mouse Position: " + str(mousepos))
+        
+    def update_key(self):
+        strkeys = ""
+
+        #format the things to be pressed
+        for i in range(0, len(self.keys)):
+            strkeys += self.keys[i]
+            if i < len(self.keys) - 1: #dont add this on the last one or it looks weird
+                strkeys += "+"
+
+        self.keyvar.set("Keys Pressed: " + strkeys)
 
     def update_exectime(self): #re-calculates execution time of program
         sec = 0
