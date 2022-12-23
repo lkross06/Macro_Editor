@@ -200,6 +200,67 @@ class MoveMouse(Command):
         y = self.vals[1]
 
         self.controller.position = (x, y) #manually set position of mouse
+
+'''
+DRAG MOUSE
+name = "Drag Mouse"
+val[0] = where to drag mouse x coord to (0 to height)
+val[1] = where to drag mouse y coord to (0 to height)
+'''
+class DragMouse(Command):
+    def __init__(self):
+        Command.__init__(self, "Drag Mouse", [0, 0], True, "Mouse") #default values: move mouse to (0,0) (top left)
+        self.controller = mouse.Controller()
+        self.time = 1 #how many seconds to drag before completion
+        self.frames = 40 #how many frames in the drag animation (im treating this as an animation)
+
+    def label(self):
+        return "drag mouse to (" + str(self.vals[0]) + ", " + str(self.vals[1]) + ")"
+
+    def save(self, vals):
+        x = vals[0].get()
+        y = vals[1].get()
+
+        self.vals = [x, y]
+        return True
+
+    def getexectime(self):
+        return self.time #drag always takes 1 second
+
+    def run(self, keydict):
+        interval = self.time/self.frames
+
+        #get old and new pos
+        oldx = self.controller.position[0]
+        oldy = self.controller.position[1]
+        newx = self.vals[0]
+        newy = self.vals[1]
+
+        #keep track of current mouse pos
+        x = oldx
+        y = oldy
+
+        '''
+        finish the drag in 1 second (40 frames * 0.025 second interval)
+        so we need to calculate how many pixels to move per 0.025 second for 40 frames
+        '''
+        dx = (oldx - newx) / self.frames
+        dy = (oldy - newy) / self.frames
+
+        #start the drag by holding down lmb
+        self.controller.press(keydict["lmb"]) #left moues button to drag
+
+        for i in range(0, self.frames):
+            x -= dx #im not gonna lie, idk why im subtracting, it just kinda works yk
+            y -= dy
+            self.controller.position = (x, y) #move the mouse
+            t.sleep(interval)
+        
+        #snap to actual position
+        self.controller.position = (newx, newy)
+
+        #finally, release the drag
+        self.controller.release(keydict["lmb"])
         
 '''
 SCROLL MOUSE (equivalent to 2-finger movement on touchpad)
@@ -528,11 +589,11 @@ class Macro:
         add_menu.add_command(label="Type", command=self.type)
         add_menu.add_separator()
         add_menu.add_command(label="Move Mouse", command=self.movemouse)
+        add_menu.add_command(label="Drag Mouse", command=self.dragmouse)
         add_menu.add_command(label="Scroll Mouse", command=self.scroll)
         add_menu.add_separator()
         add_menu.add_command(label="Sleep", command=self.sleep)
         add_menu.add_command(label="Repeat", command=self.repeat)
-
 
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Edit", menu=edit_menu)
@@ -562,6 +623,8 @@ class Macro:
                 self.load_type()
             if self.commands[self.curr].name == "Move Mouse":
                 self.load_movemouse()
+            if self.commands[self.curr].name == "Drag Mouse":
+                self.load_dragmouse()
             if self.commands[self.curr].name == "Scroll Mouse":
                 self.load_scroll()
             if self.commands[self.curr].name == "Sleep":
@@ -810,7 +873,7 @@ class Macro:
             self.update_history("edit", str(cmd.name).lower())
     
     def run(self, log = True): #run the program!!
-        runlist = self.load_runlist() #get the runlist
+        runlist = self.load_runlist() #get the runlists
 
         for i in range(0, len(runlist)):
             cmd = runlist[i]
@@ -1073,6 +1136,47 @@ class Macro:
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
+    def dragmouse(self): #create dragmouse object
+        cmd = DragMouse()
+        self.listbox_add(cmd)
+    
+    def load_dragmouse(self): #load dragmouse frame onto edit frame
+        frame = self.edit
+
+        c0 = Label(frame, text="drag mouse to (")
+        c0.grid(row=0, column=0)
+
+        val0 = tk.IntVar()
+        val0.set(self.commands[self.curr].vals[0])
+        self.vals.append(val0)
+        
+        #x bounds: 0 to width of screen
+        c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.root.winfo_screenwidth(), width=5) 
+        c1.grid(row=0, column=1)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
+
+        c2 = Label(frame, text=", ")
+        c2.grid(row=0, column=2)
+
+        val1 = tk.IntVar()
+        val1.set(self.commands[self.curr].vals[1])
+        self.vals.append(val1)
+
+        #y bounds: 0 to height of screen
+        c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.root.winfo_screenheight(), width=5) 
+        c3.grid(row=0, column=3)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
+
+        #y bounds: 0 to height of screen
+        c4 = Label(frame, text=")")
+        c4.grid(row=0, column=4)
+
+        self.load_editsave(frame) #now put the save and delete button at the bottom
+
     def scroll(self): #create scroll object
         cmd = Scroll()
         self.listbox_add(cmd)
@@ -1271,6 +1375,14 @@ class Macro:
 
                         self.listbox_add(cmd, False)
                     if name == "Move Mouse":
+                        cmd = MoveMouse()
+                        
+                        var0 = tk.IntVar(value=int(v0))
+                        var1 = tk.IntVar(value=int(v1))
+                        cmd.save([var0, var1])
+
+                        self.listbox_add(cmd, False)
+                    if name == "Drag Mouse":
                         cmd = MoveMouse()
                         
                         var0 = tk.IntVar(value=int(v0))
