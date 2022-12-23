@@ -447,7 +447,7 @@ class Macro:
         self.waitvar = tk.DoubleVar()
         self.waitvar.set(self.wait)
 
-        wait1 = Label(manageframe, text="Execution Interval (s): ")
+        wait1 = Label(manageframe, text="Execution Interval: ")
         wait1.grid(row=1, column=0, sticky="W")
 
         wait2 = Spinbox(manageframe, from_=0, to=10, increment=0.1, textvariable=self.waitvar, width=10)
@@ -622,12 +622,13 @@ class Macro:
         return runlist
 
 
-    def update_program(self): #update program metrics from Tk Vars
+    def update_program(self, log = True): #update program metrics from Tk Vars
         self.root.title(self.titlevar.get())
         self.wait = self.waitvar.get()
 
         #update history log
-        self.update_history("program", None) #no val for this entry
+        if log: #by default it will log, but if its part of another sequence (i.e. import txt) it wont
+            self.update_history("program", None) #no val for this entry
 
     def update_mouse(self, x, y): #update mouse position from listener
         mousepos = (int(x), int(y))
@@ -666,7 +667,7 @@ class Macro:
         self.historylog.insert(tk.END, label + "\n")
 
 
-    def delete(self, cut = False): #deletes a selection of commands in the listbox
+    def delete(self, log = True): #deletes a selection of commands in the listbox
         curr = self.list.curselection()
         del_len = len(curr)
 
@@ -678,7 +679,7 @@ class Macro:
                 self.list.delete(curr)
 
                 #add to history log if its not part of a cut (thats handled separately)
-                if not(cut):
+                if log:
                     self.update_history("delete", 1)
         else: #the user is using the menu widget, so we can just delete the current selection
             for i in range(0, len(curr)): #iterates through n elements to delete (delete the labels)
@@ -687,7 +688,7 @@ class Macro:
             self.list.delete(curr[0], curr[len(curr) - 1]) #delete from listbox
 
             #add to history log if its not part of a cut (thats handled separately)
-            if not(cut):
+            if log:
                 self.update_history("delete", del_len)
     
         #update the program (that nothing is selected)
@@ -696,17 +697,17 @@ class Macro:
         #update execution time
         self.update_exectime()
 
-    def copy(self, cut = False): #copy commands indices to the clipboard
+    def copy(self, log = True): #copy commands indices to the clipboard
         self.clipboard = [] #reset clipboard
         for i in self.list.curselection():
             self.clipboard.append(self.commands[i]) #add everything to keyboard
         
         #add to history log if anything was copied and if its not part of a cut (thats handled separately)
         clipboard_length = len(self.list.curselection())
-        if clipboard_length > 0 and not(cut):
+        if clipboard_length > 0 and log:
             self.update_history("copy", clipboard_length)
 
-    def paste(self): #paste all indices from clipboard after current selection
+    def paste(self, log = True): #paste all indices from clipboard after current selection
         if len(self.clipboard) > 0:
             if self.curr != None: #insert into program
                 i = self.curr
@@ -736,21 +737,23 @@ class Macro:
             self.update_exectime()
             
             #add to history log
-            self.update_history("paste", len(self.clipboard))
+            if log:
+                self.update_history("paste", len(self.clipboard))
     
-    def cut(self): #copies selection and deletes it
+    def cut(self, log = True): #copies selection and deletes it
         #store length for history log
         cut_len = len(self.list.curselection())
 
         #tell the functions that they are part of a cut command
-        self.copy(True)
-        self.delete(True)
+        self.copy(False) #no matter what, it shouldnt log anything
+        self.delete(False)
 
         #now add to history log
-        self.update_history("cut", cut_len)
+        if log:
+            self.update_history("cut", cut_len)
 
     
-    def clear(self): #reset all dynamic vals
+    def clear(self, log = True): #reset all dynamic vals
         self.curr = None
         self.program_len = self.list.size() #store for history log
         self.list.delete(0, self.list.size())
@@ -763,12 +766,13 @@ class Macro:
         #now update the program to display it
         self.load_curr(self.curr)
         self.update_exectime()
-        self.update_program()
+        self.update_program(log) #if this function shouldnt log, update_program shouldnt log either
 
         #update history log
-        self.update_history("clear", None) #no val for this entry
+        if log:
+            self.update_history("clear", None) #no val for this entry
     
-    def save(self): #save the edits to the current command
+    def save(self, log = True): #save the edits to the current command
         cmd = self.commands[self.curr]
 
         #save changes
@@ -782,10 +786,10 @@ class Macro:
         self.update_exectime()
 
         #update history log
-        self.update_history("edit", str(cmd.name).lower())
+        if log:
+            self.update_history("edit", str(cmd.name).lower())
     
-    def run(self): #run the program!!
-        
+    def run(self, log = True): #run the program!!
         runlist = self.load_runlist() #get the runlist
 
         for i in range(0, len(runlist)):
@@ -800,21 +804,13 @@ class Macro:
                 t.sleep(self.wait)
         
         #update history log
-        self.update_history("run", len(self.commands))
+        if log:
+            self.update_history("run", len(self.commands))
     
     def listbox_toggle(self, event): #toggle when the mouse is over the listbox (and items can be selected)
         self.inlistbox = not(self.inlistbox)
-
-    # def listbox_delete(self): #delete the selection from the listbox
-    #     if self.curr != None:
-    #         
-
-    #         #update execution time
-    #         self.update_exectime()
-
-    #         self.load_curr(None)
     
-    def listbox_add(self, x): #add command to the listbox
+    def listbox_add(self, x, log = True): #add command to the listbox
         self.list.insert(len(self.commands), x.label())
         self.commands.append(x)
 
@@ -822,7 +818,8 @@ class Macro:
         self.update_exectime()
 
         #update history log
-        self.update_history("add", str(x.name).lower())
+        if log:
+            self.update_history("add", str(x.name).lower())
 
     def listbox_select(self, event): #handles a new stock being selected in listbox
         curr = self.list.curselection() #returns a tuple
@@ -1138,7 +1135,7 @@ class Macro:
                 i.removesuffix("\n")
             
             #reset the current macro (so we can overwrite)
-            self.clear()
+            self.clear(False)
 
             '''
             Title
@@ -1161,7 +1158,7 @@ class Macro:
 
             self.titlevar.set(title)
             self.waitvar.set(wait)
-            self.update_program()
+            self.update_program(False)
 
             for i in text: #now we transcribe commands
                 i = i.split(",")
@@ -1181,7 +1178,7 @@ class Macro:
                         var1 = tk.IntVar(value=int(v1))
                         cmd.save([var0, var1])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                     if name == "Hold":
                         cmd = Hold()
 
@@ -1189,28 +1186,28 @@ class Macro:
                         var1 = tk.IntVar(value=int(v1))
                         cmd.save([var0, var1])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                     if name == "Press":
                         cmd = Press()
                         
                         var0 = tk.StringVar(value=str(v0))
                         cmd.save([var0])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                     if name == "Release":
                         cmd = Release()
                         
                         var0 = tk.StringVar(value=str(v0))
                         cmd.save([var0])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                     if name == "Type":
                         cmd = Type()
                         
                         var0 = tk.StringVar(value=str(v0))
                         cmd.save([var0])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                     if name == "Move Mouse":
                         cmd = MoveMouse()
                         
@@ -1218,7 +1215,7 @@ class Macro:
                         var1 = tk.IntVar(value=int(v1))
                         cmd.save([var0, var1])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                     if name == "Scroll Mouse":
                         cmd = Scroll()
 
@@ -1226,14 +1223,14 @@ class Macro:
                         var1 = tk.StringVar(value=str(v1))
                         cmd.save([var0, var1])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                     if name == "Sleep":
                         cmd = Sleep()
                         
                         var0 = tk.IntVar(value=int(v0))
                         cmd.save([var0])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                     if name == "Repeat":
                         cmd = Repeat()
 
@@ -1241,10 +1238,12 @@ class Macro:
                         var1 = tk.IntVar(value=int(v1))
                         cmd.save([var0, var1])
 
-                        self.listbox_add(cmd)
+                        self.listbox_add(cmd, False)
                 
                 except TypeError: #just dont add it if theres a casting error
                     continue
+
+            self.update_history("import", title.removesuffix("\n") + ".txt")
 
         except FileNotFoundError: #if the file is not found, just stop
             pass
@@ -1259,8 +1258,6 @@ class Macro:
         command 3
         etc.
         '''
-
-        #TODO: update history log
 
         #file name = title of macro
         filename = self.title.replace(" ", "_").replace("/", "_").replace(".", "_") + ".txt"
@@ -1286,5 +1283,8 @@ class Macro:
         file = open(filepath, "w")
         for i in text:
             file.write(i + "\n")
+
+        #update history log
+        self.update_history("export", filename)
 
 Macro() #start the GUI
