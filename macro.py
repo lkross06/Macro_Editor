@@ -596,8 +596,9 @@ class Macro:
         tab.rowconfigure(0, weight=1)
 
         #text box
-        self.historylog = tk.Text(tab)
+        self.historylog = tk.Text(tab, width=105) #idk why but 105 is the best fit
         self.historylog.grid(row=0, sticky="NESW")
+        self.historylog.configure(state='disabled') #disable as default
 
     def menu(self):
         #make a menu bar widget (container for the cascade menus at the top of the window)
@@ -872,8 +873,27 @@ class Macro:
             "edit":"edited _ command",
             "program":"updated program details"
         }
-        label = labels[idx].replace("_", str(val))
-        self.historylog.insert(tk.END, label + "\n")
+        label = labels[idx].replace("_", str(val)) #fill in the blanks
+
+        #get the current time for the time stamp
+        localtime = t.localtime()
+        h = int(t.strftime("%H", localtime))
+        m = int(t.strftime("%M", localtime))
+
+        #format with AM/PM, and convert from military time --> regular time
+        meridian = "am"
+        if h > 12: #afternoon
+            h -= 12
+            meridian = "pm"
+        elif h == 0: #midnight
+            h = 12
+
+        curr_time = str(h) + ":" + str(m) + meridian
+
+        #enable it, edit it, then disable it (so user cant edit it)
+        self.historylog.configure(state='normal')
+        self.historylog.insert(tk.END, curr_time + "\t" + label + "\n")
+        self.historylog.configure(state='disabled')
 
     #compares a dynamic variable to its starting value. if they differ, enable the save button to be pressed
     def enablesave(self, var, val, save): #var = variable to check, val = default value, save = button to change
