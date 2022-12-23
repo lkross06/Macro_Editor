@@ -424,6 +424,43 @@ class Macro:
         self.keydict["rmb"] = mouse.Button.right
         self.keydict["mmb"] = mouse.Button.middle
 
+        self.keys = [] #current keys pressed
+
+        #alphanumeric button handler
+        self.root.bind("<KeyPress>", self.handle_key_press)
+        self.root.bind("<KeyRelease>", self.handle_key_release)
+
+        #other buttons (key.char == "", so we use key.keysym to get key symbol)
+
+        #press
+        self.root.bind("<KeyPress-space>", lambda key : self.handle_other_key_press("space"))
+        self.root.bind("<KeyPress-Meta_R>", lambda key : self.handle_other_key_press("cmd"))
+        self.root.bind("<KeyPress-Meta_L>", lambda key : self.handle_other_key_press("cmd"))
+        self.root.bind("<KeyPress-Meta_R>", lambda key : self.handle_other_key_press("cmd"))
+        self.root.bind("<KeyPress-Control_L>", lambda key : self.handle_other_key_press("ctrl"))
+        self.root.bind("<KeyPress-Control_R>", lambda key : self.handle_other_key_press("ctrl"))
+        self.root.bind("<KeyPress-Shift_L>", lambda key : self.handle_other_key_press("shift"))
+        self.root.bind("<KeyPress-Shift_R>", lambda key : self.handle_other_key_press("shift"))
+        self.root.bind("<KeyPress-Tab>", lambda key : self.handle_other_key_press("tab"))
+        self.root.bind("<KeyPress-Caps_Lock>", lambda key : self.handle_other_key_press("caps"))
+        self.root.bind("<KeyPress-Escape>", lambda key : self.handle_other_key_press("esc"))
+        self.root.bind("<KeyPress-Return>", lambda key : self.handle_other_key_press("enter"))
+        self.root.bind("<KeyPress-BackSpace>", lambda key : self.handle_other_key_press("bs"))
+
+        #release
+        self.root.bind("<KeyRelease-space>", lambda key : self.handle_other_key_release("space"))
+        self.root.bind("<KeyRelease-Meta_L>", lambda key : self.handle_other_key_release("cmd"))
+        self.root.bind("<KeyRelease-Meta_R>", lambda key : self.handle_other_key_release("cmd"))
+        self.root.bind("<KeyRelease-Control_L>", lambda key : self.handle_other_key_release("ctrl"))
+        self.root.bind("<KeyRelease-Control_R>", lambda key : self.handle_other_key_release("ctrl"))
+        self.root.bind("<KeyRelease-Shift_L>", lambda key : self.handle_other_key_release("shift"))
+        self.root.bind("<KeyRelease-Shift_R>", lambda key : self.handle_other_key_release("shift"))
+        self.root.bind("<KeyRelease-Tab>", lambda key : self.handle_other_key_release("tab"))
+        self.root.bind("<KeyRelease-Caps_Lock>", lambda key : self.handle_other_key_release("caps"))
+        self.root.bind("<KeyRelease-Escape>", lambda key : self.handle_other_key_release("esc"))
+        self.root.bind("<KeyRelease-Return>", lambda key : self.handle_other_key_release("enter"))
+        self.root.bind("<KeyRelease-BackSpace>", lambda key : self.handle_other_key_release("bs"))
+
         # listener for mouse
         mouselistener = mouse.Listener(on_move=self.update_mouse)
         mouselistener.start()
@@ -468,19 +505,26 @@ class Macro:
         metricframe.columnconfigure(1, weight=1)
         metricframe.columnconfigure(2, weight=1)
 
-        #dynamic text label
+        #dynamic text label 1
+        self.keyvar = tk.StringVar()
+        self.keyvar.set("Keys Pressed: ")
+
+        keylabel = Label(metricframe, textvariable=self.keyvar, width=50)
+        keylabel.grid(row=0, column=0)
+
+        #dynamic text label 2
         self.mousevar = tk.StringVar()
         self.mousevar.set("Mouse Position: (0,0)")
 
-        mouselabel = Label(metricframe, textvariable=self.mousevar, width=25)
-        mouselabel.grid(row=0, column=0)
+        mouselabel = Label(metricframe, textvariable=self.mousevar, width=50)
+        mouselabel.grid(row=1, column=0)
 
-        #dynamic text label 2
+        #dynamic text label 3
         self.exectime = tk.StringVar()
         self.exectime.set("Execution Time: 0s")
 
-        exectimelabel = Label(metricframe, textvariable=self.exectime, width=25)
-        exectimelabel.grid(row=1, column=0)
+        exectimelabel = Label(metricframe, textvariable=self.exectime, width=50)
+        exectimelabel.grid(row=2, column=0)
 
         #for managing metrics related to program itself (title of program, execution time interval)
         manageframe = LabelFrame(tab, text="Manage", width=50)
@@ -598,6 +642,98 @@ class Macro:
         menubar.add_cascade(label="File", menu=file_menu)
         menubar.add_cascade(label="Edit", menu=edit_menu)
         menubar.add_cascade(label="Add", menu=add_menu)
+
+    def unshift(self, key): #takes a key (shift/caps lock pressed) and finds its corresponding unshifted key, returns the key if its already unshifted 
+        '''
+        all the ascii codes for keys that can be pressed without using shift/caps lock
+        39      '
+        44-47   , - . /
+        48-57   0 to 9
+        59      ;
+        61      =
+        91-93   [ ] \
+        96      `
+        97-122  a to z
+        
+        all the ascii codes for keys that can be pressed with using shift OR capslock
+        65-90   A to Z
+
+        all the ascii codes for keys that can be pressed with using shift ONLY
+        33-38   ! " $ % &
+        40-43   ( ) * +
+        58      :
+        60      <
+        62-64   > ? @
+        65-90   A to Z
+        94-95   ^ _
+        123-126 { | } ~
+        '''
+        
+        #yes this was done by hand
+        #shifted value : unshifted value
+        dict = \
+            {33:49} | \
+            {34:39} | \
+            {35:51} | \
+            {36:52} | \
+            {37:53} | \
+            {38:55} | \
+            {40:57} | \
+            {41:48} | \
+            {42:56} | \
+            {43:61} | \
+            {58:59} | \
+            {60:44} | \
+            {62:46} | \
+            {63:47} | \
+            {64:50} | \
+            {94:54} | \
+            {95:45} | \
+            {123:91} | \
+            {124:92} | \
+            {125:93} | \
+            {126:96}
+
+        key = ord(key)
+        rtn = key
+
+        if "shift" in self.keys: #shift/caps lock pressed
+            if 65 <= key and key <= 90: #A-Z
+                rtn = key + 32
+            else:
+                rtn = dict[key]
+        elif "caps" in self.keys: #caps lock pressed
+            if 65 <= key and key <= 90: #only a-z are affected
+                rtn = key + 32 #a-z <-- A-Z
+
+        return chr(rtn)
+
+    def handle_key_press(self, key):
+        self.keys.append(self.unshift(key.char))
+        self.update_key()
+
+    def handle_key_release(self, key):
+        self.keys.remove(self.unshift(key.char))
+        self.update_key()
+
+    def handle_other_key_press(self, key):
+        self.keys.append(key)
+        self.update_key()
+
+    def handle_other_key_release(self, key):
+        self.keys.remove(key)
+        self.update_key()
+
+    def update_key(self):
+        strkeys = ""
+
+        #format the things to be pressed
+        for i in range(0, len(self.keys)):
+            strkeys += self.keys[i]
+            if i < len(self.keys) - 1: #dont add this on the last one or it looks weird
+                strkeys += "+"
+
+        self.keyvar.set("Keys Pressed: " + strkeys)
     
     def load_curr(self, i): #update the GUI to correctly handle the current seletion (at index i)
         self.curr = i
