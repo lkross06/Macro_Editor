@@ -337,7 +337,7 @@ class Macro:
         self.notebook.grid(sticky="NESW")
 
         #make the frames for the tab container
-        self.commands_tab()
+        self.program_tab()
         self.history_tab()
 
         #make the menu widgets
@@ -373,7 +373,7 @@ class Macro:
         #stop thread after loop closes
         mouselistener.stop()
 
-    def commands_tab(self): #the main page of the notebook widget
+    def program_tab(self): #the main page of the notebook widget
         tab = Frame(self.notebook)
         tab.grid()
 
@@ -385,7 +385,7 @@ class Macro:
         tab.columnconfigure(0, weight=1)
         tab.columnconfigure(1, weight=2)
 
-        self.inlistbox = False; #keep track of when the cursor is in the listbox and can select things
+        self.inlistbox = False #keep track of when the cursor is in the listbox and can select things
 
         #listbox
         self.list = tk.Listbox(tab, selectmode=tk.EXTENDED)
@@ -399,27 +399,27 @@ class Macro:
         metricframe.grid(row=0, column=1, sticky="NESW", padx=5, pady=5)
         metricframe.grid_propagate(False)
 
-        #3x1 grid
+        #3x3 grid
         metricframe.rowconfigure(0, weight=1)
         metricframe.rowconfigure(1, weight=1)
         metricframe.rowconfigure(2, weight=1)
         metricframe.columnconfigure(0, weight=1)
+        metricframe.columnconfigure(1, weight=1)
+        metricframe.columnconfigure(2, weight=1)
 
         #dynamic text label
         self.mousevar = tk.StringVar()
         self.mousevar.set("Mouse Position: (0,0)")
 
         mouselabel = Label(metricframe, textvariable=self.mousevar, width=25)
-        mouselabel.grid(row=0, column=0, columnspan=2)
-        mouselabel.grid_propagate(False)
+        mouselabel.grid(row=0, column=0)
 
         #dynamic text label 2
         self.exectime = tk.StringVar()
         self.exectime.set("Execution Time: 0s")
 
         exectimelabel = Label(metricframe, textvariable=self.exectime, width=25)
-        exectimelabel.grid(row=1, column=0, columnspan=2)
-        exectimelabel.grid_propagate(False)
+        exectimelabel.grid(row=1, column=0)
 
         #for managing metrics related to program itself (title of program, execution time interval)
         manageframe = LabelFrame(tab, text="Manage", width=50)
@@ -454,8 +454,15 @@ class Macro:
         wait2.grid(row=1, column=1, sticky="W")
 
         #save button
-        savebutton = Button(manageframe, text="Save", command=self.update_program)
-        savebutton.grid(row=2, column=0, columnspan=2)
+        self.managesave = Button(manageframe, text="Save", command=self.update_program)
+        self.managesave.grid(row=2, column=0, columnspan=2)
+
+        #by default its disabled
+        self.managesave["state"] = "disabled"
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        self.titlevar.trace("w", lambda x,y,z : self.enablesave(title2, self.title, self.managesave))
+        self.waitvar.trace("w", lambda x,y,z : self.enablesave(wait2, self.wait, self.managesave))
 
         #for editing the selected command
         self.edit = LabelFrame(tab, text="Edit", width=50) #starting width = 50
@@ -473,7 +480,7 @@ class Macro:
 
         self.load_editdefault() #load the default edit frame (i.e. when no command is selected)
 
-        self.notebook.add(tab, text="Commands") #add to notebook
+        self.notebook.add(tab, text="Program") #add to notebook
 
     def history_tab(self): #create history page for notebook
         tab = Frame(self.notebook)
@@ -569,8 +576,9 @@ class Macro:
         delbutton = Button(frame, command=self.delete, text="Delete")
         delbutton.grid(row=1, column=0)
 
-        savebutton = Button(frame, command=self.save, text="Save")
-        savebutton.grid(row=1, column=1)
+        self.editsave = Button(frame, command=self.save, text="Save")
+        self.editsave.grid(row=1, column=1)
+        self.editsave["state"] = "disabled"
 
     def load_editdefault(self): #default frame for when no command is selected
         none = Label(self.edit, text="No Command Selected")
@@ -626,6 +634,9 @@ class Macro:
         self.root.title(self.titlevar.get())
         self.wait = self.waitvar.get()
 
+        #disable the save button again
+        self.managesave["state"] = "disabled"
+
         #update history log
         if log: #by default it will log, but if its part of another sequence (i.e. import txt) it wont
             self.update_history("program", None) #no val for this entry
@@ -666,6 +677,12 @@ class Macro:
         label = labels[idx].replace("_", str(val))
         self.historylog.insert(tk.END, label + "\n")
 
+    #compares a dynamic variable to its starting value. if they differ, enable the save button to be pressed
+    def enablesave(self, var, val, save): #var = variable to check, val = default value, save = button to change
+        if var.get() == val:
+            save["state"] = "disabled"
+        else:
+            save["state"] = "normal"
 
     def delete(self, log = True): #deletes a selection of commands in the listbox
         curr = self.list.curselection()
@@ -777,6 +794,9 @@ class Macro:
 
         #save changes
         cmd.save(self.vals)
+
+        #disable save button (we know which one it is bc we're in the edit menu)
+        self.editsave["state"] = "disabled"
         
         #update label
         self.list.delete(self.curr)
@@ -850,6 +870,9 @@ class Macro:
         c1.state(["readonly"])
         c1.grid(row=0, column=1)
 
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
+
         c2 = Label(frame, text="")
         c2.grid(row=0, column=2)
 
@@ -859,6 +882,9 @@ class Macro:
 
         c3 = Spinbox(frame, from_=1, to=100, textvariable=self.vals[1], width=5)
         c3.grid(row=0, column=3)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
 
         c4 = Label(frame, text=" times")
         c4.grid(row=0, column=4)
@@ -886,6 +912,9 @@ class Macro:
         c1.state(["readonly"])
         c1.grid(row=0, column=1)
 
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
+
         c2 = Label(frame, text=" for ")
         c2.grid(row=0, column=2)
 
@@ -895,6 +924,9 @@ class Macro:
 
         c3 = Spinbox(frame, from_=1, to=100, textvariable=self.vals[1], width=5)
         c3.grid(row=0, column=3)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
 
         c4 = Label(frame, text=" seconds")
         c4.grid(row=0, column=4)
@@ -920,6 +952,9 @@ class Macro:
         c1["values"] = c1vals
         c1.state(["readonly"])
         c1.grid(row=0, column=1)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
 
         c2 = Label(frame, text="")
         c2.grid(row=0, column=2)
@@ -952,6 +987,9 @@ class Macro:
         c1.state(["readonly"])
         c1.grid(row=0, column=1)
 
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
+
         c2 = Label(frame, text="")
         c2.grid(row=0, column=2)
 
@@ -979,6 +1017,9 @@ class Macro:
 
         c1 = Entry(frame, textvariable=self.vals[0], width=5)
         c1.grid(row=0, column=1)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
 
         c2 = Label(frame, text="")
         c2.grid(row=0, column=2)
@@ -1009,6 +1050,9 @@ class Macro:
         c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.root.winfo_screenwidth(), width=5) 
         c1.grid(row=0, column=1)
 
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
+
         c2 = Label(frame, text=", ")
         c2.grid(row=0, column=2)
 
@@ -1019,6 +1063,9 @@ class Macro:
         #y bounds: 0 to height of screen
         c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.root.winfo_screenheight(), width=5) 
         c3.grid(row=0, column=3)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
 
         #y bounds: 0 to height of screen
         c4 = Label(frame, text=")")
@@ -1042,6 +1089,9 @@ class Macro:
 
         c1 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100, width=5)
         c1.grid(row=0, column=1)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
         
         c2 = Label(frame, text=" steps ")
         c2.grid(row=0, column=2)
@@ -1054,6 +1104,9 @@ class Macro:
         c3["values"] = ["up", "down", "right", "left"]
         c3.state(["readonly"])
         c3.grid(row=0, column=3)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
 
         c4 = Label(frame, text="")
         c4.grid(row=0, column=4)
@@ -1077,6 +1130,9 @@ class Macro:
 
         c1 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100, width=5)
         c1.grid(row=0, column=1)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
         
         c2 = Label(frame, text=" seconds")
         c2.grid(row=0, column=2)
@@ -1109,12 +1165,18 @@ class Macro:
 
         c1 = Spinbox(frame, textvariable=self.vals[1], from_=1, to=100, width=5)
         c1.grid(row=0, column=1)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
         
         c2 = Label(frame, text=" lines ")
         c2.grid(row=0, column=2)
 
         c3 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=100, width=5)
         c3.grid(row=0, column=3)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
 
         c4 = Label(frame, text=" times")
         c4.grid(row=0, column=4)
