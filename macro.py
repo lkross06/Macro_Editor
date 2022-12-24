@@ -2,7 +2,6 @@
 
 import tkinter as tk
 from tkinter.ttk import *
-import pandas as pd
 from tkinter import filedialog as fd
 import pynput.keyboard as keyboard #Listener, Button, Controller
 import pynput.mouse as mouse #Listener, Button, Controller
