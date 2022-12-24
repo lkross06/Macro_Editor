@@ -383,6 +383,7 @@ class Macro:
 
         self.title = "Macro Editor" #name of application
         self.wait = 0.1 #seconds in-between each command
+        self.hotkey = None #run program when this hotkey is pressed
         self.vals = [] #this will transfer gui info to commands
 
         self.root = tk.Tk() # Create a window
@@ -393,17 +394,6 @@ class Macro:
         #set up grid
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-
-        #make the notebook for different tabs
-        self.notebook = Notebook(self.root, height=700)
-        self.notebook.grid(sticky="NESW")
-
-        #make the frames for the tab container
-        self.program_tab()
-        self.history_tab()
-
-        #make the menu widgets
-        self.menu()
 
         #any key that can be pressed without holding shift / toggling caps lock
         no_shift = [39] + [x for x in range(44, 58)] + [59, 61, 91, 92, 93, 96] + [x for x in range(97, 123)] #see comment block in self.unshift()
@@ -461,6 +451,17 @@ class Macro:
         self.root.bind("<KeyRelease-Escape>", lambda key : self.handle_other_key_release("esc"))
         self.root.bind("<KeyRelease-Return>", lambda key : self.handle_other_key_release("enter"))
         self.root.bind("<KeyRelease-BackSpace>", lambda key : self.handle_other_key_release("bs"))
+
+        #make the notebook for different tabs
+        self.notebook = Notebook(self.root, height=700)
+        self.notebook.grid(sticky="NESW")
+
+        #make the frames for the tab container
+        self.program_tab()
+        self.history_tab()
+
+        #make the menu widgets
+        self.menu()
 
         # listener for mouse
         mouselistener = mouse.Listener(on_move=self.update_mouse)
@@ -536,6 +537,7 @@ class Macro:
         manageframe.rowconfigure(0, weight=1)
         manageframe.rowconfigure(1, weight=1)
         manageframe.rowconfigure(2, weight=1)
+        manageframe.rowconfigure(3, weight=1)
         manageframe.columnconfigure(0, weight=1)
         manageframe.columnconfigure(1, weight=1)
 
@@ -559,9 +561,21 @@ class Macro:
         wait2 = Spinbox(manageframe, from_=0, to=10, increment=0.1, textvariable=self.waitvar, width=10)
         wait2.grid(row=1, column=1, sticky="W")
 
+        #hotkey
+        self.hotkeyvar = tk.StringVar() #dont set it to anything bc theres no default
+
+        hk1 = Label(manageframe, text="Execution Hotkey: ")
+        hk1.grid(row=2, column=0, sticky="W")
+
+        hk2 = Combobox(manageframe, textvariable=self.hotkeyvar, width=5)
+        hk2vals = list(self.keydict.keys()) #all the label
+        hk2["values"] = hk2vals
+        hk2.state(["readonly"])
+        hk2.grid(row=2, column=1, sticky="W")
+
         #save button
         self.managesave = Button(manageframe, text="Save", command=self.update_program)
-        self.managesave.grid(row=2, column=0, columnspan=2)
+        self.managesave.grid(row=3, column=0, columnspan=2)
 
         #by default its disabled
         self.managesave["state"] = "disabled"
@@ -569,6 +583,7 @@ class Macro:
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
         self.titlevar.trace("w", lambda x,y,z : self.enablesave(title2, self.title, self.managesave))
         self.waitvar.trace("w", lambda x,y,z : self.enablesave(wait2, self.wait, self.managesave))
+        self.hotkeyvar.trace("w", lambda x,y,z : self.enablesave(hk2, self.hotkey, self.managesave))
 
         #for editing the selected command
         self.edit = LabelFrame(tab, text="Edit", width=50) #starting width = 50
@@ -822,6 +837,7 @@ class Macro:
     def update_program(self, log = True): #update program metrics from Tk Vars
         self.root.title(self.titlevar.get())
         self.wait = self.waitvar.get()
+        self.hotkey = self.hotkeyvar.get()
 
         #disable the save button again
         self.managesave["state"] = "disabled"
@@ -844,6 +860,12 @@ class Macro:
                 strkeys += "+"
 
         self.keyvar.set("Keys Pressed: " + strkeys)
+
+        #now check if hotkey was pressed
+        if self.hotkey != None:
+            for i in self.keys:
+                if self.keydict[i] == self.hotkey: #if the hotkey is in the pressed keys
+                    self.run()
 
     def update_exectime(self): #re-calculates execution time of program
         sec = 0
