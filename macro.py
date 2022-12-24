@@ -562,14 +562,15 @@ class Macro:
         wait2.grid(row=1, column=1, sticky="W")
 
         #hotkey
-        self.hotkeyvar = tk.StringVar() #dont set it to anything bc theres no default
+        self.hotkeyvar = tk.StringVar()
+        self.hotkeyvar.set("None")
 
         hk1 = Label(manageframe, text="Execution Hotkey: ")
         hk1.grid(row=2, column=0, sticky="W")
 
         hk2 = Combobox(manageframe, textvariable=self.hotkeyvar, width=5)
         hk2vals = list(self.keydict.keys()) #all the label
-        hk2["values"] = hk2vals
+        hk2["values"] = [None] + hk2vals #allow none to be an option
         hk2.state(["readonly"])
         hk2.grid(row=2, column=1, sticky="W")
 
@@ -838,6 +839,9 @@ class Macro:
         self.root.title(self.titlevar.get())
         self.wait = self.waitvar.get()
         self.hotkey = self.hotkeyvar.get()
+
+        if self.hotkey == "None": #if the user selects no hotkey, convert gui to logic (str --> None)
+            self.hotkey = None
 
         #disable the save button again
         self.managesave["state"] = "disabled"
