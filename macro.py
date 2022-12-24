@@ -331,7 +331,7 @@ class Sleep(Command):
 
         self.checkintbounds(sec) #check int bounds
 
-        self.vals = [int(sec)]
+        self.vals = [float(sec)]
         return True
     
     def getexectime(self):
@@ -371,6 +371,7 @@ class Repeat(Command): #TODO: indent the lines below on listbox?
                 j.run()
         
 '''
+MACRO
 tkinter application to simulate user inputs with pynput (keyboard/mouse)
 '''
 class Macro:
@@ -381,7 +382,7 @@ class Macro:
         self.intbounds = (0, 100) #TODO: use this
 
         self.title = "Macro Editor" #name of application
-        self.wait = 0.5 #seconds in-between each command
+        self.wait = 0.1 #seconds in-between each command
         self.vals = [] #this will transfer gui info to commands
 
         self.root = tk.Tk() # Create a window
@@ -995,7 +996,7 @@ class Macro:
         self.commands = []
         self.vals = []
         
-        self.waitvar.set(0.5)
+        self.waitvar.set(0.1)
         self.titlevar.set("Macro Editor")
 
         #now update the program to display it
@@ -1136,11 +1137,12 @@ class Macro:
         c2 = Label(frame, text=" for ")
         c2.grid(row=0, column=2)
 
-        val1 = tk.IntVar()
+        val1 = tk.DoubleVar()
         val1.set(self.commands[self.curr].vals[1])
         self.vals.append(val1)
 
-        c3 = Spinbox(frame, from_=1, to=100, textvariable=self.vals[1], width=5)
+        #format and increment variables allow spinbox to go to 1 decimal place
+        c3 = Spinbox(frame, textvariable=self.vals[1], from_=1, to=100, increment=0.1, format="%.1f", width=5)
         c3.grid(row=0, column=3)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
@@ -1383,11 +1385,12 @@ class Macro:
         c0 = Label(frame, text="sleep for ")
         c0.grid(row=0, column=0)
 
-        val0 = tk.IntVar()
+        val0 = tk.DoubleVar() #allow it to handle ints
         val0.set(self.commands[self.curr].vals[0])
         self.vals.append(val0)
 
-        c1 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100, width=5)
+        #format and increment variables allow spinbox to go to 1 decimal place
+        c1 = Spinbox(frame, textvariable=self.vals[0], from_=1, to=100, increment=0.1, format="%.1f", width=5)
         c1.grid(row=0, column=1)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
@@ -1473,7 +1476,7 @@ class Macro:
             try:
                 wait = float(wait)
             except ValueError:
-                wait = 0.5 # just set to default if its invalid :/
+                wait = 0.1 # just set to default if its invalid :/
 
             text.pop(0) #for filler line
 
@@ -1504,7 +1507,7 @@ class Macro:
                         cmd = Hold()
 
                         var0 = tk.StringVar(value=str(v0))
-                        var1 = tk.IntVar(value=int(v1))
+                        var1 = tk.DoubleVar(value=float(v1))
                         cmd.save([var0, var1])
 
                         self.listbox_add(cmd, False)
@@ -1556,7 +1559,7 @@ class Macro:
                     if name == "Sleep":
                         cmd = Sleep()
                         
-                        var0 = tk.IntVar(value=int(v0))
+                        var0 = tk.DoubleVar(value=float(v0))
                         cmd.save([var0])
 
                         self.listbox_add(cmd, False)
