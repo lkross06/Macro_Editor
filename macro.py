@@ -7,8 +7,31 @@ import pynput.keyboard as keyboard #Listener, Button, Controller
 import pynput.mouse as mouse #Listener, Button, Controller
 import time as t
 import os
+import random as rand
 
 '''
+MARKER
+generic object for marking a location on the screen for coordinate-based commands
+'''
+class Marker:
+    def __init__(self, x, y, name):
+        #marker coordinates
+        self.x = int(x)
+        self.y = int(y)
+        #name will increment (Marker 1, Marker 2, Marker 3, ...)
+        #but that will be controlled by Macro
+        self.name = name
+        self.color = self.get_rand_color() #fill color for canvas
+
+    def get_rand_color(self): #return a random color string in the form #RRGGBB
+        num = rand.randint(0, 16777215)
+        num = hex(num)
+        while len(num[2:]) < 6:
+            num = num + "0"
+        return "#" + num[2:]
+
+'''
+COMMAND
 generic class for command objects
 '''
 class Command:
@@ -368,7 +391,7 @@ class Repeat(Command): #TODO: indent the lines below on listbox?
         for i in range(0, self.vals[0]):
             for j in lines:
                 j.run()
-        
+
 '''
 MACRO
 tkinter application to simulate user inputs with pynput (keyboard/mouse)
@@ -383,12 +406,18 @@ class Macro:
         self.title = "Macro Editor" #name of application
         self.wait = 0.1 #seconds in-between each command
         self.hotkey = None #run program when this hotkey is pressed
+        self.markerhotkey = "space" #add a marker when this hotkey is pressed and the marker tab is active
         self.vals = [] #this will transfer gui info to commands
+        self.markers = [] #keep track of all available marker
 
         self.root = tk.Tk() # Create a window
         self.root.title(self.title)
         self.root.geometry("800x800+200+50")
         self.root.resizable(width=False, height=False)
+
+        #dimensions of screen
+        self.width = self.root.winfo_screenwidth()
+        self.height = self.root.winfo_screenheight()
 
         #set up grid
         self.root.columnconfigure(0, weight=1)
@@ -457,6 +486,7 @@ class Macro:
 
         #make the frames for the tab container
         self.program_tab()
+        self.marker_tab()
         self.history_tab()
 
         #make the menu widgets
@@ -471,6 +501,8 @@ class Macro:
 
         #stop thread after loop closes
         mouselistener.stop()
+
+        #TODO: fix the HORRENDOUS gui css
 
     def program_tab(self): #the main page of the notebook widget
         tab = Frame(self.notebook)
@@ -602,6 +634,88 @@ class Macro:
         self.load_editdefault() #load the default edit frame (i.e. when no command is selected)
 
         self.notebook.add(tab, text="Program") #add to notebook
+
+    def marker_tab(self):
+        tab = Frame(self.notebook)
+        tab.grid()
+        self.notebook.add(tab, text="Marker")
+
+        #set up grid
+        tab.rowconfigure(0, weight=1)
+        tab.rowconfigure(1, weight=2)
+        tab.rowconfigure(2, weight=2)
+        tab.columnconfigure(0, weight=3)
+        tab.columnconfigure(1, weight=2)
+
+        #get proportion of screen
+        prop = self.width/self.height
+        w = 500 #width is always 700px
+        h = w / prop # get corresponding height
+
+        print("screen: ", self.width, "x", self.height, sep = "")
+        print("canvas: ", w, "x", h, sep = "")
+
+        #canvas to show markers on screen
+        self.markercanvas = tk.Canvas(tab, width=w, height=h)
+
+        self.markercanvas.grid(row=0, column=1)
+        self.markercanvas.config(bg="white")
+
+        #make the listbox
+        self.markerlist = tk.Listbox(tab, selectmode=tk.EXTENDED)
+        self.markerlist.grid(row=0, rowspan=3, column=0, sticky="NESW")
+
+        #manage frame
+        manageframe = LabelFrame(tab, text="Manage", width=400)
+        manageframe.grid(row=1, column=1, padx=5, pady=5, sticky="NWS")
+
+        #set up grid
+        manageframe.rowconfigure(0, weight=1)
+        manageframe.rowconfigure(1, weight=1)
+        manageframe.rowconfigure(2, weight=1)
+        manageframe.columnconfigure(0, weight=1)
+        manageframe.columnconfigure(1, weight=1)
+        manageframe.columnconfigure(2, weight=2)
+        manageframe.grid_propagate(False)
+
+        mouselabel = Label(manageframe, textvariable=self.mousevar, width=50)
+        mouselabel.grid(row=0, column=0, columnspan=3)
+
+        i1 = Label(manageframe, text="press", width=5)
+        i1.grid(row=1, column=0)
+
+        self.markerhotkeyvar = tk.StringVar()
+        self.markerhotkeyvar.set(self.markerhotkey)
+
+        i2 = Combobox(manageframe, textvariable=self.markerhotkeyvar, width=5)
+        i2vals = list(self.keydict.keys()) #all the labels
+        i2["values"] = i2vals
+        i2.state(["readonly"])
+        i2.grid(row=1, column=1)
+
+        i3 = Label(manageframe, text="to set a marker at the mouse position")
+        i3.grid(row=1, column=2)
+
+        self.markersave = Button(manageframe, command=self.save, text="Save")
+        self.markersave.grid(row=2, column=1)
+        self.markersave["state"] = "disabled" #default to disabled
+
+        #make it enable on change
+        self.markerhotkeyvar.trace("w", lambda x,y,z : self.enablesave(self.markerhotkeyvar, self.markerhotkey, self.markersave))
+
+        #edit frame
+        editframe = LabelFrame(tab, text="Edit", width=400)
+        editframe.grid(row=2, column=1, padx=5, pady=5, sticky="NWS")
+
+        #set up grid
+        editframe.rowconfigure(0, weight=1)
+        editframe.rowconfigure(1, weight=1)
+        editframe.columnconfigure(0, weight=1)
+        editframe.columnconfigure(1, weight=1)
+        editframe.grid_propagate(False)
+
+        none = Label(editframe, text="No Command Selected")
+        none.grid(row=0, column=0)
 
     def history_tab(self): #create history page for notebook
         tab = Frame(self.notebook)
@@ -867,8 +981,15 @@ class Macro:
         #now check if hotkey was pressed
         if self.hotkey != None:
             for i in self.keys:
-                if self.keydict[i] == self.hotkey: #if the hotkey is in the pressed keys
+                if i == self.hotkey: #if the hotkey is in the pressed keys
                     self.run()
+
+        #if the marker tab is open, check if marker hotkey was pressed
+        if self.get_active_tab() == "Marker":
+            for i in self.keys:
+                if i == self.markerhotkeyvar.get():
+                    self.add_marker()
+                    print("ADD MARKERS")
 
     def update_exectime(self): #re-calculates execution time of program
         sec = 0
@@ -895,8 +1016,8 @@ class Macro:
             "run":"ran _ commands",
             "import":"imported program from _",
             "export":"exported program to _",
-            "add":"added _ command",
-            "edit":"edited _ command",
+            "add":"added _",
+            "edit":"edited _",
             "program":"updated program details"
         }
         label = labels[idx].replace("_", str(val)) #fill in the blanks
@@ -920,6 +1041,53 @@ class Macro:
         self.historylog.configure(state='normal')
         self.historylog.insert(tk.END, curr_time + "\t" + label + "\n")
         self.historylog.configure(state='disabled')
+
+    def get_active_tab(self): #gets the name of the currently open tab
+        return self.notebook.tab(self.notebook.select(), "text")
+
+    def add_marker(self):
+        #get current mouse pos
+        con = mouse.Controller()
+        pos = con.position
+
+        m = Marker(pos[0], pos[1], "Marker " + str(len(self.markers) + 1)) #increments so that each name is unique
+        self.markers.append(m)
+
+        #update the canvas
+        self.update_canvas()
+    
+    def update_canvas(self): #updates the canvas GUI by redrawing everything
+        #clear canvas
+        self.markercanvas.delete("all")
+
+        #add everything to canvas
+        for i in self.markers:
+            #translate x and y coordinates
+            cw = int(self.markercanvas["width"]) #canvas width
+            sw = self.width #screen width
+            sx = i.x #screen x
+
+            #ratio: sx/sw = cx/cw --> cx = (sx * cw)/sw
+            cx = (sx * cw)/sw #canvas x
+
+            ch = int(self.markercanvas["height"]) #canvas height
+            sh = self.height #screen height
+            sy = i.y #screen y
+            
+            #same ratio
+            cy = (sy * ch)/sh #canvas y
+
+            print("(" + str(cx) + ", " + str(cy) + ")")
+
+            #draw circle of radius 1
+            r = 3
+            self.markercanvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline = "#000000", fill = i.color) #center point at (cx, cy)
+
+            #now add the text
+            #by default, the text is centered around x,y
+            self.markercanvas.create_text(cx, cy - (r + 10), \
+            text=i.name + " (" + str(sx) + ", " + str(sy) + ")", \
+            fill = "#000000") #name + coords
 
     #compares a dynamic variable to its starting value. if they differ, enable the save button to be pressed
     def enablesave(self, var, val, save): #var = variable to check, val = default value, save = button to change
@@ -967,6 +1135,8 @@ class Macro:
         clipboard_length = len(self.list.curselection())
         if clipboard_length > 0 and log:
             self.update_history("copy", clipboard_length)
+
+        #TODO: configure these commands to work for markers? use nb.tab(nb.select(), "text") to get name off active tab
 
     def paste(self, log = True): #paste all indices from clipboard after current selection
         if len(self.clipboard) > 0:
@@ -1034,24 +1204,35 @@ class Macro:
             self.update_history("clear", None) #no val for this entry
     
     def save(self, log = True): #save the edits to the current command
-        cmd = self.commands[self.curr]
-
-        #save changes
-        cmd.save(self.vals)
-
-        #disable save button (we know which one it is bc we're in the edit menu)
-        self.editsave["state"] = "disabled"
+        window = self.get_active_tab() #get current tab (this function is different for different tabs)
         
-        #update label
-        self.list.delete(self.curr)
-        self.list.insert(self.curr, cmd.label())
+        if window == "Program": #program tab
+            cmd = self.commands[self.curr]
 
-        #update execution time
-        self.update_exectime()
+            #save changes
+            cmd.save(self.vals)
 
-        #update history log
-        if log:
-            self.update_history("edit", str(cmd.name).lower())
+            #disable save button (we know which one it is bc we're in the edit menu)
+            self.editsave["state"] = "disabled"
+            
+            #update label
+            self.list.delete(self.curr)
+            self.list.insert(self.curr, cmd.label())
+
+            #update execution time
+            self.update_exectime()
+
+            #update history log
+            if log:
+                self.update_history("edit", str(cmd.name).lower() + " command")
+        if window == "Marker":
+            self.markerhotkey = self.markerhotkeyvar.get()
+
+            #disable the save button again
+            self.markersave["state"] = "disabled"
+
+            if log:
+                self.update_history("edit", "marker hotkey")
     
     def run(self, log = True): #run the program!!
         runlist = self.load_runlist() #get the runlists
@@ -1083,7 +1264,7 @@ class Macro:
 
         #update history log
         if log:
-            self.update_history("add", str(x.name).lower())
+            self.update_history("add", str(x.name).lower() + " command")
 
     def listbox_select(self, event): #handles a new stock being selected in listbox
         curr = self.list.curselection() #returns a tuple
@@ -1292,7 +1473,7 @@ class Macro:
         self.vals.append(val0)
         
         #x bounds: 0 to width of screen
-        c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.root.winfo_screenwidth(), width=5) 
+        c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.width, width=5) 
         c1.grid(row=0, column=1)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
@@ -1306,7 +1487,7 @@ class Macro:
         self.vals.append(val1)
 
         #y bounds: 0 to height of screen
-        c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.root.winfo_screenheight(), width=5) 
+        c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.height, width=5) 
         c3.grid(row=0, column=3)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
@@ -1333,7 +1514,7 @@ class Macro:
         self.vals.append(val0)
         
         #x bounds: 0 to width of screen
-        c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.root.winfo_screenwidth(), width=5) 
+        c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.width, width=5) 
         c1.grid(row=0, column=1)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
@@ -1347,7 +1528,7 @@ class Macro:
         self.vals.append(val1)
 
         #y bounds: 0 to height of screen
-        c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.root.winfo_screenheight(), width=5) 
+        c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.height, width=5) 
         c3.grid(row=0, column=3)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
