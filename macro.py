@@ -23,6 +23,11 @@ class Marker:
         self.name = name
         self.color = self.get_rand_color() #fill color for canvas
 
+    def save(self, x, y, name):
+        self.x = int(x)
+        self.y = int(y)
+        self.name = str(name)
+
     def get_rand_color(self): #return a random color string in the form #RRGGBB
         num = rand.randint(0, 16777215)
         num = hex(num)
@@ -73,9 +78,8 @@ class Click(Command):
         return "click [" + self.vals[0] + "] " + str(self.vals[1]) + " times"
 
     def save(self, vals): #returns true if successful, false otherwise
-        #vals input is an array of Tk Vars (because they update dynamically), so we gotta .get() to get their values
-        key = vals[0].get()
-        repeat = vals[1].get()
+        key = vals[0]
+        repeat = vals[1]
 
         self.checkintbounds(repeat) #check bounds
 
@@ -105,8 +109,8 @@ class Hold(Command):
         return "hold [" + self.vals[0] + "] for " + str(self.vals[1]) + " seconds"
 
     def save(self, vals): #returns true if successful, false otherwise
-        key = vals[0].get()
-        time = vals[1].get()
+        key = vals[0]
+        time = vals[1]
 
         self.checkintbounds(time) #check bounds
 
@@ -140,7 +144,7 @@ class Press(Command):
         return "press [" + self.vals[0] + "]"
 
     def save(self, vals):
-        key = vals[0].get()
+        key = vals[0]
 
         self.vals = [key]
         return True
@@ -165,7 +169,7 @@ class Release(Command):
         return "release [" + self.vals[0] + "]"
 
     def save(self, vals):
-        key = vals[0].get()
+        key = vals[0]
 
         self.vals = [key]
         return True
@@ -189,7 +193,7 @@ class Type(Command):
         return "type " + self.vals[0]
 
     def save(self, vals):
-        string = vals[0].get()
+        string = vals[0]
 
         self.vals = [string]
         return True
@@ -211,8 +215,8 @@ class MoveMouse(Command):
         return "move mouse to (" + str(self.vals[0]) + ", " + str(self.vals[1]) + ")"
 
     def save(self, vals):
-        x = vals[0].get()
-        y = vals[1].get()
+        x = vals[0]
+        y = vals[1]
 
         self.vals = [x, y]
         return True
@@ -240,8 +244,8 @@ class DragMouse(Command):
         return "drag mouse to (" + str(self.vals[0]) + ", " + str(self.vals[1]) + ")"
 
     def save(self, vals):
-        x = vals[0].get()
-        y = vals[1].get()
+        x = vals[0]
+        y = vals[1]
 
         self.vals = [x, y]
         return True
@@ -301,8 +305,8 @@ class Scroll(Command):
         return "scroll mouse " + str(step) + " steps " + direction
 
     def save(self, vals):
-        steps = vals[0].get()
-        direction = vals[1].get()
+        steps = vals[0]
+        direction = vals[1]
 
         self.checkintbounds(steps)
 
@@ -349,7 +353,7 @@ class Sleep(Command):
         return "sleep for " + str(self.vals[0]) + " seconds"
 
     def save(self, vals):
-        sec = vals[0].get()
+        sec = vals[0]
 
         self.checkintbounds(sec) #check int bounds
 
@@ -375,8 +379,8 @@ class Repeat(Command): #TODO: indent the lines below on listbox?
         return "repeat next " + str(self.vals[1]) + " lines " + str(self.vals[0]) + " times"
 
     def save(self, vals):
-        rep = vals[0].get()
-        lines = vals[1].get()
+        rep = vals[0]
+        lines = vals[1]
 
         self.checkintbounds(rep) #check int bounds
         self.checkintbounds(lines)
@@ -400,6 +404,7 @@ class Macro:
     def __init__(self):
         self.commands = [] #list of commands to execute
         self.curr = None #keep track of the index of our current stock
+        self.marcurr = None #silly little pun because its marker curr
         self.clipboard = [] #keeps track of all objects on clipboard
         self.intbounds = (0, 100) #TODO: use this
 
@@ -521,7 +526,7 @@ class Macro:
         #listbox
         self.list = tk.Listbox(tab, selectmode=tk.EXTENDED)
         self.list.grid(row=0, rowspan=4, column=0, sticky="NSEW", padx=5, pady=5)
-        self.list.bind("<<ListboxSelect>>", self.listbox_select)
+        self.list.bind("<<ListboxSelect>>", self.listbox_programselect)
         self.list.bind("<Enter>", self.listbox_toggle)
         self.list.bind("<Leave>", self.listbox_toggle)
 
@@ -652,9 +657,6 @@ class Macro:
         w = 500 #width is always 700px
         h = w / prop # get corresponding height
 
-        print("screen: ", self.width, "x", self.height, sep = "")
-        print("canvas: ", w, "x", h, sep = "")
-
         #canvas to show markers on screen
         self.markercanvas = tk.Canvas(tab, width=w, height=h)
 
@@ -664,6 +666,10 @@ class Macro:
         #make the listbox
         self.markerlist = tk.Listbox(tab, selectmode=tk.EXTENDED)
         self.markerlist.grid(row=0, rowspan=3, column=0, sticky="NESW")
+        self.markerlist.bind("<<ListboxSelect>>", self.listbox_markerselect)
+        #the toggle can be used for both listboxes because you have to be out of the listbox to switch tabs
+        self.markerlist.bind("<Enter>", self.listbox_toggle)
+        self.markerlist.bind("<Leave>", self.listbox_toggle)
 
         #manage frame
         manageframe = LabelFrame(tab, text="Manage", width=400)
@@ -696,7 +702,7 @@ class Macro:
         i3 = Label(manageframe, text="to set a marker at the mouse position")
         i3.grid(row=1, column=2)
 
-        self.markersave = Button(manageframe, command=self.save, text="Save")
+        self.markersave = Button(manageframe, command=self.update_markerhotkey, text="Save")
         self.markersave.grid(row=2, column=1)
         self.markersave["state"] = "disabled" #default to disabled
 
@@ -704,17 +710,20 @@ class Macro:
         self.markerhotkeyvar.trace("w", lambda x,y,z : self.enablesave(self.markerhotkeyvar, self.markerhotkey, self.markersave))
 
         #edit frame
-        editframe = LabelFrame(tab, text="Edit", width=400)
-        editframe.grid(row=2, column=1, padx=5, pady=5, sticky="NWS")
+        self.markeredit = LabelFrame(tab, text="Edit", width=400)
+        self.markeredit.grid(row=2, column=1, padx=5, pady=5, sticky="NWS")
 
         #set up grid
-        editframe.rowconfigure(0, weight=1)
-        editframe.rowconfigure(1, weight=1)
-        editframe.columnconfigure(0, weight=1)
-        editframe.columnconfigure(1, weight=1)
-        editframe.grid_propagate(False)
+        self.markeredit.rowconfigure(0, weight=1)
+        self.markeredit.rowconfigure(1, weight=1)
+        self.markeredit.rowconfigure(2, weight=1)
+        self.markeredit.columnconfigure(0, weight=1)
+        self.markeredit.columnconfigure(1, weight=1)
+        self.markeredit.columnconfigure(2, weight=1)
+        self.markeredit.columnconfigure(3, weight=1)
+        self.markeredit.grid_propagate(False)
 
-        none = Label(editframe, text="No Command Selected")
+        none = Label(self.markeredit, text="No Marker Selected")
         none.grid(row=0, column=0)
 
     def history_tab(self): #create history page for notebook
@@ -825,19 +834,20 @@ class Macro:
             {125:93} | \
             {126:96}
 
-        key = ord(key)
-        rtn = key
+        if len(key) > 0:
+            key = ord(key)
+            rtn = key
 
-        if "shift" in self.keys: #shift/caps lock pressed
-            if 65 <= key and key <= 90: #A-Z
-                rtn = key + 32
-            else:
-                rtn = dict[key]
-        elif "caps" in self.keys: #caps lock pressed
-            if 65 <= key and key <= 90: #only a-z are affected
-                rtn = key + 32 #a-z <-- A-Z
+            if "shift" in self.keys: #shift/caps lock pressed
+                if 65 <= key and key <= 90: #A-Z
+                    rtn = key + 32
+                else:
+                    rtn = dict[key]
+            elif "caps" in self.keys: #caps lock pressed
+                if 65 <= key and key <= 90: #only a-z are affected
+                    rtn = key + 32 #a-z <-- A-Z
 
-        return chr(rtn)
+            return chr(rtn)
 
     def handle_key_press(self, key):
         self.keys.append(self.unshift(key.char))
@@ -854,11 +864,24 @@ class Macro:
     def handle_other_key_release(self, key):
         self.keys.remove(key)
         self.update_key()
+
+    def load_curr_marker(self, i):
+        self.marcurr = i #since curr should only be used once at a time, we can just reuse it
+
+        #delete current edit tab children
+        for i in self.markeredit.winfo_children():
+            i.destroy()
+
+        #load the edit frame
+        if self.marcurr != None:
+            self.load_marker()       
+        else:
+            self.load_editmarkerdefault()  
     
     def load_curr(self, i): #update the GUI to correctly handle the current seletion (at index i)
         self.curr = i
 
-        #delete current manage tab children
+        #delete current edit tab children
         for i in self.edit.winfo_children():
             i.destroy()
 
@@ -899,9 +922,23 @@ class Macro:
         self.editsave.grid(row=1, column=1)
         self.editsave["state"] = "disabled"
 
+    def load_editmarkersave(self): #adds the two bottom buttons
+        frame = self.markeredit
+        delbutton = Button(frame, command=self.delete, text="Delete")
+        delbutton.grid(row=2, column=0)
+
+        self.meditsave = Button(frame, command=self.save, text="Save")
+        self.meditsave.grid(row=2, column=1)
+        self.meditsave["state"] = "disabled"
+        
+
     def load_editdefault(self): #default frame for when no command is selected
         none = Label(self.edit, text="No Command Selected")
-        none.grid(row=0, column=0) #3x3 grid, so this label is in the middle
+        none.grid(row=0, column=0)
+    
+    def load_editmarkerdefault(self): #default frame for when no command is selected
+        none = Label(self.markeredit, text="No Marker Selected")
+        none.grid(row=0, column=0)
     
     def load_runlist(self):
         '''
@@ -962,6 +999,15 @@ class Macro:
         #update history log
         if log: #by default it will log, but if its part of another sequence (i.e. import txt) it wont
             self.update_history("program", None) #no val for this entry
+    
+    def update_markerhotkey(self, log = True): #update marker setting hotkey
+        self.markerhotkey = self.markerhotkeyvar.get()
+
+        #disable the save button again
+        self.markersave["state"] = "disabled"
+
+        if log:
+            self.update_history("edit", "marker hotkey")
 
     def update_mouse(self, x, y): #update mouse position from listener
         mousepos = (int(x), int(y))
@@ -989,7 +1035,6 @@ class Macro:
             for i in self.keys:
                 if i == self.markerhotkeyvar.get():
                     self.add_marker()
-                    print("ADD MARKERS")
 
     def update_exectime(self): #re-calculates execution time of program
         sec = 0
@@ -1051,7 +1096,9 @@ class Macro:
         pos = con.position
 
         m = Marker(pos[0], pos[1], "Marker " + str(len(self.markers) + 1)) #increments so that each name is unique
-        self.markers.append(m)
+
+        #add to listbox
+        self.listbox_add(m)
 
         #update the canvas
         self.update_canvas()
@@ -1076,8 +1123,6 @@ class Macro:
             
             #same ratio
             cy = (sy * ch)/sh #canvas y
-
-            print("(" + str(cx) + ", " + str(cy) + ")")
 
             #draw circle of radius 1
             r = 3
@@ -1210,7 +1255,13 @@ class Macro:
             cmd = self.commands[self.curr]
 
             #save changes
-            cmd.save(self.vals)
+            if len(self.vals) > 1:
+                v0 = self.vals[0]
+                v1 = self.vals[1]
+                cmd.save([v0, v1])
+            else:
+                v0 = self.vals[0]
+                cmd.save([v0])
 
             #disable save button (we know which one it is bc we're in the edit menu)
             self.editsave["state"] = "disabled"
@@ -1226,13 +1277,22 @@ class Macro:
             if log:
                 self.update_history("edit", str(cmd.name).lower() + " command")
         if window == "Marker":
-            self.markerhotkey = self.markerhotkeyvar.get()
+            m = self.markers[self.marcurr]
 
-            #disable the save button again
-            self.markersave["state"] = "disabled"
+            #save changes
+            x = self.mx.get()
+            y = self.my.get()
+            name = self.mname.get()
 
-            if log:
-                self.update_history("edit", "marker hotkey")
+            m.save(x, y, name)
+
+            #update the canvas
+            self.update_canvas() 
+
+            #update listbox label
+            self.markerlist.delete(self.marcurr)
+            self.markerlist.insert(self.marcurr, m.name)
+
     
     def run(self, log = True): #run the program!!
         runlist = self.load_runlist() #get the runlists
@@ -1256,17 +1316,26 @@ class Macro:
         self.inlistbox = not(self.inlistbox)
     
     def listbox_add(self, x, log = True): #add command to the listbox
-        self.list.insert(len(self.commands), x.label())
-        self.commands.append(x)
+        if self.get_active_tab() == "Program":
+            self.list.insert(len(self.commands), x.label())
+            self.commands.append(x)
 
-        #now update execution time
-        self.update_exectime()
+            #now update execution time
+            self.update_exectime()
 
-        #update history log
-        if log:
-            self.update_history("add", str(x.name).lower() + " command")
+            #update history log
+            if log:
+                self.update_history("add", str(x.name).lower() + " command")
 
-    def listbox_select(self, event): #handles a new stock being selected in listbox
+        if self.get_active_tab() == "Marker":
+            self.markerlist.insert(len(self.markers), x.name)
+            self.markers.append(x)
+
+            #update history log
+            if log:
+                self.update_history("add", x.name + " marker")
+
+    def listbox_programselect(self, event): #handles a command being selected in listbox
         curr = self.list.curselection() #returns a tuple
         if self.inlistbox: #only allow changes if in the listbox
             if len(curr) == 1: #single selection
@@ -1274,6 +1343,64 @@ class Macro:
             else: #either multiple selection or no selection (you cant edit then)
                 index = None
             self.load_curr(index)
+        
+    def listbox_markerselect(self, event): #handles a marker being selected in listbox
+        curr = self.markerlist.curselection() #returns a tuple
+        if self.inlistbox: #only allow changes if in the listbox
+            if len(curr) == 1: #single selection
+                index = curr[0] #since the listbox only allows single selection, the tuple only has 1 item
+            else: #either multiple selection or no selection (you cant edit then)
+                index = None
+            self.load_curr_marker(index)
+    
+    def load_marker(self):
+        frame = self.markeredit
+
+        #TODO: replace all save buttons with nothing? idfk
+
+        marker = self.markers[self.marcurr]
+
+        #name label
+        n1 = Label(frame, text="Name:")
+        n1.grid(row=0, column=0)
+
+        #name
+        self.mname = tk.StringVar()
+        self.mname.set(marker.name)
+
+        n2 = Entry(frame, width=10, textvariable=self.mname)
+        n2.grid(row=0, column=1)
+
+        #mouse coordniates
+        m1 = Label(frame, text="Coordinates: (")
+        m1.grid(row=1, column=0)
+
+        #x coord
+        self.mx = tk.IntVar()
+        self.mx.set(marker.x)
+
+        m2 = Spinbox(frame, from_=0, to=self.width, width=5, textvariable=self.mx)
+        m2.grid(row=1, column=1)
+
+        m3 = Label(frame, text=", ")
+        m3.grid(row=1, column=2)
+
+        #y coord
+        self.my = tk.IntVar()
+        self.my.set(marker.y)
+
+        m4 = Spinbox(frame, from_=0, to=self.height, width=5, textvariable=self.my)
+        m4.grid(row=1, column=3)
+
+        m5 = Label(frame, text=")")
+        m5.grid(row=1, column=4)
+
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        self.mname.trace("w", lambda x,y,z : self.enablesave(n2, marker.name, self.meditsave))
+        self.mx.trace("w", lambda x,y,z : self.enablesave(m2, marker.x, self.meditsave))
+        self.my.trace("w", lambda x,y,z : self.enablesave(m4, marker.y, self.meditsave))
+
+        self.load_editmarkersave()
 
     def click(self): #create new click command
         cmd = Click()
@@ -1441,7 +1568,7 @@ class Macro:
         val0.set(self.commands[self.curr].vals[0]) # put default val
         self.vals.append(val0)
 
-        c1 = Entry(frame, textvariable=self.vals[0], width=5)
+        c1 = Entry(frame, textvariable=self.vals[0], width=10)
         c1.grid(row=0, column=1)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
@@ -1702,80 +1829,53 @@ class Macro:
                 try:
                     if name == "Click": #same as self.click() but it saves the new data to the obj before adding it
                         cmd = Click()
-
-                        #cast to tk.StringVar/tk.IntVar objects so that it can be processed better by save()
-                        var0 = tk.StringVar(value=str(v0))
-                        var1 = tk.IntVar(value=int(v1))
-                        cmd.save([var0, var1])
+                        cmd.save([v0, v1])
 
                         self.listbox_add(cmd, False)
                     if name == "Hold":
                         cmd = Hold()
-
-                        var0 = tk.StringVar(value=str(v0))
-                        var1 = tk.DoubleVar(value=float(v1))
-                        cmd.save([var0, var1])
-
+                        cmd.save([v0, v1])
+                        
                         self.listbox_add(cmd, False)
                     if name == "Press":
                         cmd = Press()
+                        cmd.save([v0])
                         
-                        var0 = tk.StringVar(value=str(v0))
-                        cmd.save([var0])
-
                         self.listbox_add(cmd, False)
                     if name == "Release":
                         cmd = Release()
+                        cmd.save([v0])
                         
-                        var0 = tk.StringVar(value=str(v0))
-                        cmd.save([var0])
-
                         self.listbox_add(cmd, False)
                     if name == "Type":
                         cmd = Type()
+                        cmd.save([v0])
                         
-                        var0 = tk.StringVar(value=str(v0))
-                        cmd.save([var0])
-
                         self.listbox_add(cmd, False)
                     if name == "Move Mouse":
                         cmd = MoveMouse()
+                        cmd.save([v0, v1])
                         
-                        var0 = tk.IntVar(value=int(v0))
-                        var1 = tk.IntVar(value=int(v1))
-                        cmd.save([var0, var1])
-
                         self.listbox_add(cmd, False)
                     if name == "Drag Mouse":
-                        cmd = MoveMouse()
+                        cmd = DragMouse()
+                        cmd.save([v0, v1])
                         
-                        var0 = tk.IntVar(value=int(v0))
-                        var1 = tk.IntVar(value=int(v1))
-                        cmd.save([var0, var1])
-
                         self.listbox_add(cmd, False)
                     if name == "Scroll Mouse":
                         cmd = Scroll()
-
-                        var0 = tk.IntVar(value=int(v0))
-                        var1 = tk.StringVar(value=str(v1))
-                        cmd.save([var0, var1])
-
+                        cmd.save([v0, v1])
+                        
                         self.listbox_add(cmd, False)
                     if name == "Sleep":
-                        cmd = Sleep()
+                        cmd = Click()
+                        cmd.save([v0])
                         
-                        var0 = tk.DoubleVar(value=float(v0))
-                        cmd.save([var0])
-
                         self.listbox_add(cmd, False)
                     if name == "Repeat":
                         cmd = Repeat()
-
-                        var0 = tk.IntVar(value=int(v0))
-                        var1 = tk.IntVar(value=int(v1))
-                        cmd.save([var0, var1])
-
+                        cmd.save([v0, v1])
+                        
                         self.listbox_add(cmd, False)
                 
                 except TypeError: #just dont add it if theres a casting error
