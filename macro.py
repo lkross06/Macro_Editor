@@ -411,7 +411,7 @@ class Macro:
         self.title = "Macro Editor" #name of application
         self.wait = 0.1 #seconds in-between each command
         self.hotkey = None #run program when this hotkey is pressed
-        self.markerhotkey = "space" #add a marker when this hotkey is pressed and the marker tab is active
+        self.mh = "space" #add a marker when this hotkey is pressed and the marker tab is active
         self.vals = [] #this will transfer gui info to commands
         self.markers = [] #keep track of all available marker
 
@@ -658,18 +658,18 @@ class Macro:
         h = w / prop # get corresponding height
 
         #canvas to show markers on screen
-        self.markercanvas = tk.Canvas(tab, width=w, height=h)
+        self.mcanvas = tk.Canvas(tab, width=w, height=h)
 
-        self.markercanvas.grid(row=0, column=1)
-        self.markercanvas.config(bg="white")
+        self.mcanvas.grid(row=0, column=1)
+        self.mcanvas.config(bg="white")
 
         #make the listbox
-        self.markerlist = tk.Listbox(tab, selectmode=tk.EXTENDED)
-        self.markerlist.grid(row=0, rowspan=3, column=0, sticky="NESW")
-        self.markerlist.bind("<<ListboxSelect>>", self.listbox_markerselect)
+        self.mlist = tk.Listbox(tab, selectmode=tk.EXTENDED)
+        self.mlist.grid(row=0, rowspan=3, column=0, sticky="NESW")
+        self.mlist.bind("<<ListboxSelect>>", self.listbox_markerselect)
         #the toggle can be used for both listboxes because you have to be out of the listbox to switch tabs
-        self.markerlist.bind("<Enter>", self.listbox_toggle)
-        self.markerlist.bind("<Leave>", self.listbox_toggle)
+        self.mlist.bind("<Enter>", self.listbox_toggle)
+        self.mlist.bind("<Leave>", self.listbox_toggle)
 
         #manage frame
         manageframe = LabelFrame(tab, text="Manage", width=400)
@@ -690,10 +690,10 @@ class Macro:
         i1 = Label(manageframe, text="press", width=5)
         i1.grid(row=1, column=0)
 
-        self.markerhotkeyvar = tk.StringVar()
-        self.markerhotkeyvar.set(self.markerhotkey)
+        self.mhvar = tk.StringVar()
+        self.mhvar.set(self.mh)
 
-        i2 = Combobox(manageframe, textvariable=self.markerhotkeyvar, width=5)
+        i2 = Combobox(manageframe, textvariable=self.mhvar, width=5)
         i2vals = list(self.keydict.keys()) #all the labels
         i2["values"] = i2vals
         i2.state(["readonly"])
@@ -702,28 +702,28 @@ class Macro:
         i3 = Label(manageframe, text="to set a marker at the mouse position")
         i3.grid(row=1, column=2)
 
-        self.markersave = Button(manageframe, command=self.update_markerhotkey, text="Save")
-        self.markersave.grid(row=2, column=1)
-        self.markersave["state"] = "disabled" #default to disabled
+        self.msave = Button(manageframe, command=self.update_markerhotkey, text="Save")
+        self.msave.grid(row=2, column=1)
+        self.msave["state"] = "disabled" #default to disabled
 
         #make it enable on change
-        self.markerhotkeyvar.trace("w", lambda x,y,z : self.enablesave(self.markerhotkeyvar, self.markerhotkey, self.markersave))
+        self.mhvar.trace("w", lambda x,y,z : self.enablesave(self.mhvar, self.mh, self.msave))
 
         #edit frame
-        self.markeredit = LabelFrame(tab, text="Edit", width=400)
-        self.markeredit.grid(row=2, column=1, padx=5, pady=5, sticky="NWS")
+        self.medit = LabelFrame(tab, text="Edit", width=400)
+        self.medit.grid(row=2, column=1, padx=5, pady=5, sticky="NWS")
 
         #set up grid
-        self.markeredit.rowconfigure(0, weight=1)
-        self.markeredit.rowconfigure(1, weight=1)
-        self.markeredit.rowconfigure(2, weight=1)
-        self.markeredit.columnconfigure(0, weight=1)
-        self.markeredit.columnconfigure(1, weight=1)
-        self.markeredit.columnconfigure(2, weight=1)
-        self.markeredit.columnconfigure(3, weight=1)
-        self.markeredit.grid_propagate(False)
+        self.medit.rowconfigure(0, weight=1)
+        self.medit.rowconfigure(1, weight=1)
+        self.medit.rowconfigure(2, weight=1)
+        self.medit.columnconfigure(0, weight=1)
+        self.medit.columnconfigure(1, weight=1)
+        self.medit.columnconfigure(2, weight=1)
+        self.medit.columnconfigure(3, weight=1)
+        self.medit.grid_propagate(False)
 
-        none = Label(self.markeredit, text="No Marker Selected")
+        none = Label(self.medit, text="No Marker Selected")
         none.grid(row=0, column=0)
 
     def history_tab(self): #create history page for notebook
@@ -869,7 +869,7 @@ class Macro:
         self.marcurr = i #since curr should only be used once at a time, we can just reuse it
 
         #delete current edit tab children
-        for i in self.markeredit.winfo_children():
+        for i in self.medit.winfo_children():
             i.destroy()
 
         #load the edit frame
@@ -923,7 +923,7 @@ class Macro:
         self.editsave["state"] = "disabled"
 
     def load_editmarkersave(self): #adds the two bottom buttons
-        frame = self.markeredit
+        frame = self.medit
         delbutton = Button(frame, command=self.delete, text="Delete")
         delbutton.grid(row=2, column=0)
 
@@ -937,7 +937,7 @@ class Macro:
         none.grid(row=0, column=0)
     
     def load_editmarkerdefault(self): #default frame for when no command is selected
-        none = Label(self.markeredit, text="No Marker Selected")
+        none = Label(self.medit, text="No Marker Selected")
         none.grid(row=0, column=0)
     
     def load_runlist(self):
@@ -1001,10 +1001,10 @@ class Macro:
             self.update_history("program", None) #no val for this entry
     
     def update_markerhotkey(self, log = True): #update marker setting hotkey
-        self.markerhotkey = self.markerhotkeyvar.get()
+        self.mh = self.mhvar.get()
 
         #disable the save button again
-        self.markersave["state"] = "disabled"
+        self.msave["state"] = "disabled"
 
         if log:
             self.update_history("edit", "marker hotkey")
@@ -1033,7 +1033,7 @@ class Macro:
         #if the marker tab is open, check if marker hotkey was pressed
         if self.get_active_tab() == "Marker":
             for i in self.keys:
-                if i == self.markerhotkeyvar.get():
+                if i == self.mhvar.get():
                     self.add_marker()
 
     def update_exectime(self): #re-calculates execution time of program
@@ -1105,19 +1105,19 @@ class Macro:
     
     def update_canvas(self): #updates the canvas GUI by redrawing everything
         #clear canvas
-        self.markercanvas.delete("all")
+        self.mcanvas.delete("all")
 
         #add everything to canvas
         for i in self.markers:
             #translate x and y coordinates
-            cw = int(self.markercanvas["width"]) #canvas width
+            cw = int(self.mcanvas["width"]) #canvas width
             sw = self.width #screen width
             sx = i.x #screen x
 
             #ratio: sx/sw = cx/cw --> cx = (sx * cw)/sw
             cx = (sx * cw)/sw #canvas x
 
-            ch = int(self.markercanvas["height"]) #canvas height
+            ch = int(self.mcanvas["height"]) #canvas height
             sh = self.height #screen height
             sy = i.y #screen y
             
@@ -1126,11 +1126,11 @@ class Macro:
 
             #draw circle of radius 1
             r = 3
-            self.markercanvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline = "#000000", fill = i.color) #center point at (cx, cy)
+            self.mcanvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline = "#000000", fill = i.color) #center point at (cx, cy)
 
             #now add the text
             #by default, the text is centered around x,y
-            self.markercanvas.create_text(cx, cy - (r + 10), \
+            self.mcanvas.create_text(cx, cy - (r + 10), \
             text=i.name + " (" + str(sx) + ", " + str(sy) + ")", \
             fill = "#000000") #name + coords
 
@@ -1290,8 +1290,8 @@ class Macro:
             self.update_canvas() 
 
             #update listbox label
-            self.markerlist.delete(self.marcurr)
-            self.markerlist.insert(self.marcurr, m.name)
+            self.mlist.delete(self.marcurr)
+            self.mlist.insert(self.marcurr, m.name)
 
     
     def run(self, log = True): #run the program!!
@@ -1328,7 +1328,7 @@ class Macro:
                 self.update_history("add", str(x.name).lower() + " command")
 
         if self.get_active_tab() == "Marker":
-            self.markerlist.insert(len(self.markers), x.name)
+            self.mlist.insert(len(self.markers), x.name)
             self.markers.append(x)
 
             #update history log
@@ -1345,7 +1345,7 @@ class Macro:
             self.load_curr(index)
         
     def listbox_markerselect(self, event): #handles a marker being selected in listbox
-        curr = self.markerlist.curselection() #returns a tuple
+        curr = self.mlist.curselection() #returns a tuple
         if self.inlistbox: #only allow changes if in the listbox
             if len(curr) == 1: #single selection
                 index = curr[0] #since the listbox only allows single selection, the tuple only has 1 item
@@ -1354,7 +1354,7 @@ class Macro:
             self.load_curr_marker(index)
     
     def load_marker(self):
-        frame = self.markeredit
+        frame = self.medit
 
         #TODO: replace all save buttons with nothing? idfk
 
