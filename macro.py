@@ -18,6 +18,9 @@ TODO LIST
 - indent items in listbox below repeat?
 - add markers to txt files
 - implement markers for commands
+- remove default values, update import/export accordingly
+- use tk filedialog to add alerts
+- improve marker canvas (make text labels show up anywhere, make dimensions bigger to fit everything?)
 '''
 
 '''
@@ -57,6 +60,7 @@ class Command:
         self.intbounds = [1, 100] #bounds for commands that use int values (i.e. hold for n seconds)
         self.usekeydict = usekeydict
         self.type = typestr
+        self.valid = False
 
     def save(self, vals):
         self.vals = vals
@@ -80,19 +84,22 @@ vals[1] = (int) how many times to click
 '''
 class Click(Command):
     def __init__(self):
-        Command.__init__(self, "Click", ["a", 1], True, "Button") #default values: click a, 1 time
+        Command.__init__(self, "Click", [None, None], True, "Button")
         #we need both controllers bc the user can click keys or mouse buttons
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
     def label(self):
-        return "click [" + self.vals[0] + "] " + str(self.vals[1]) + " times"
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
+        return "click [" + v0 + "] " + v1 + " times"
 
     def save(self, vals): #returns true if successful, false otherwise
         key = vals[0]
         repeat = vals[1]
 
         self.checkintbounds(repeat) #check bounds
+        self.valid = True #once valid inputs have been given, it can run
 
         self.vals = [key, repeat]
         return True #the entry widgets are pretty much impossible to mess up
@@ -112,18 +119,21 @@ vals[1] = how long (sec) to hold it
 '''
 class Hold(Command):
     def __init__(self):
-        Command.__init__(self, "Hold", ["a", 1], True, "Button") #default values: hold a for 1 second
+        Command.__init__(self, "Hold", [None, None], True, "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
     def label(self):
-        return "hold [" + self.vals[0] + "] for " + str(self.vals[1]) + " seconds"
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
+        return "hold [" + v0 + "] for " + v1 + " seconds"
 
     def save(self, vals): #returns true if successful, false otherwise
         key = vals[0]
         time = vals[1]
 
         self.checkintbounds(time) #check bounds
+        self.valid = True
 
         self.vals = [key, time]
         return True
@@ -147,17 +157,20 @@ vals[0] = string  to press
 '''
 class Press(Command):
     def __init__(self):
-        Command.__init__(self, "Press", ["a"], True, "Button") #default value: press a
+        Command.__init__(self, "Press", [None], True, "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
     def label(self):
-        return "press [" + self.vals[0] + "]"
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        return "press [" + v0 + "]"
 
     def save(self, vals):
         key = vals[0]
 
         self.vals = [key]
+        self.valid = True
+
         return True
 
     def run(self, keydict):
@@ -172,17 +185,20 @@ vals[0] = string  to release
 '''
 class Release(Command):
     def __init__(self):
-        Command.__init__(self, "Release", ["a"], True, "Button") #default value: release a
+        Command.__init__(self, "Release", [None], True, "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
     def label(self):
-        return "release [" + self.vals[0] + "]"
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        return "release [" + v0 + "]"
 
     def save(self, vals):
         key = vals[0]
 
         self.vals = [key]
+        self.valid = True
+
         return True
 
     def run(self, keydict):
@@ -197,16 +213,18 @@ vals[0] = string (1+ character) to type
 '''
 class Type(Command):
     def __init__(self):
-        Command.__init__(self, "Type", ["abc"], False, "Button") #default value: type "abc"
+        Command.__init__(self, "Type", [None], False, "Button")
         self.controller = keyboard.Controller() #you cant type mouse buttons, so we just need keyboard
 
     def label(self):
-        return "type " + self.vals[0]
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        return "type " + v0
 
     def save(self, vals):
         string = vals[0]
 
         self.vals = [string]
+        self.valid = True
         return True
 
     def run(self):
@@ -219,16 +237,19 @@ vals[1] = y coord to move to (0 <= y <= height)
 '''
 class MoveMouse(Command):
     def __init__(self):
-        Command.__init__(self, "Move Mouse", [0, 0], False, "Mouse") #default values: move mouse to (0,0) (top left)
+        Command.__init__(self, "Move Mouse", [None, None], False, "Mouse")
         self.controller = mouse.Controller()
 
     def label(self):
-        return "move mouse to (" + str(self.vals[0]) + ", " + str(self.vals[1]) + ")"
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
+        return "move mouse to (" + v0 + ", " + v1 + ")"
 
     def save(self, vals):
         x = vals[0]
         y = vals[1]
 
+        self.valid = True
         self.vals = [x, y]
         return True
 
@@ -246,18 +267,21 @@ val[1] = where to drag mouse y coord to (0 to height)
 '''
 class DragMouse(Command):
     def __init__(self):
-        Command.__init__(self, "Drag Mouse", [0, 0], True, "Mouse") #default values: move mouse to (0,0) (top left)
+        Command.__init__(self, "Drag Mouse", [None, None], True, "Mouse")
         self.controller = mouse.Controller()
         self.time = 1 #how many seconds to drag before completion
         self.frames = 40 #how many frames in the drag animation (im treating this as an animation)
 
     def label(self):
-        return "drag mouse to (" + str(self.vals[0]) + ", " + str(self.vals[1]) + ")"
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
+        return "drag mouse to (" + v0 + ", " + v1 + ")"
 
     def save(self, vals):
         x = vals[0]
         y = vals[1]
 
+        self.valid = True
         self.vals = [x, y]
         return True
 
@@ -306,20 +330,20 @@ vals[1] = direction (up, right, down, left)
 '''
 class Scroll(Command):
     def __init__(self):
-        Command.__init__(self, "Scroll Mouse", [1, "down"], False, "Mouse") #default values: scroll mouse 1 step down
+        Command.__init__(self, "Scroll Mouse", [None, None], False, "Mouse")
         self.controller = mouse.Controller()
 
     def label(self):
-        step = self.vals[0]
-        direction = self.vals[1]
-
-        return "scroll mouse " + str(step) + " steps " + direction
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
+        return "scroll mouse " + v0 + " steps " + v1
 
     def save(self, vals):
         steps = vals[0]
         direction = vals[1]
 
         self.checkintbounds(steps)
+        self.valid = True
 
         self.vals = [int(steps), direction]
         return True
@@ -358,14 +382,16 @@ vals[0] = sec to sleep
 '''
 class Sleep(Command):
     def __init__(self):
-        Command.__init__(self, "Sleep", [1], False, "Other") #default value: sleep for 1 second
+        Command.__init__(self, "Sleep", [None], False, "Other")
 
     def label(self):
-        return "sleep for " + str(self.vals[0]) + " seconds"
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        return "sleep for " + v0 + " seconds"
 
     def save(self, vals):
         sec = vals[0]
 
+        self.valid = True
         self.checkintbounds(sec) #check int bounds
 
         self.vals = [float(sec)]
@@ -384,10 +410,12 @@ vals[1] = how many lines after to repeat
 '''
 class Repeat(Command):
     def __init__(self):
-        Command.__init__(self, "Repeat", [1, 1], False, "Other") #default value: sleep for 1 second
+        Command.__init__(self, "Repeat", [None, None], False, "Other")
 
     def label(self):
-        return "repeat next " + str(self.vals[1]) + " lines " + str(self.vals[0]) + " times"
+        v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
+        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
+        return "repeat next " + v1 + " lines " + v0 + " times"
 
     def save(self, vals):
         rep = vals[0]
@@ -395,6 +423,7 @@ class Repeat(Command):
 
         self.checkintbounds(rep) #check int bounds
         self.checkintbounds(lines)
+        self.valid = True
 
         self.vals = [int(rep), int(lines)]
         return True
@@ -984,15 +1013,17 @@ class Macro:
         for i in range(0, len(self.commands)):
             cmd = self.commands[i]
 
-            if cmd.name == "Repeat":
+            if cmd.name == "Repeat" and cmd.valid:
                 repeat = cmd.vals[0]
                 lines = cmd.vals[1]
                 for n in range(0, repeat - 1): #runlist will append everything again after, so -1 repeat
                     for j in range(i + 1, i + lines + 1):
                         if j < len(self.commands): #only add if its in the list
-                            runlist.append(self.commands[j])
+                            if self.commands[j].valid: #only run if valid
+                                runlist.append(self.commands[j])
             else: #omit the repeat commands from running
-                runlist.append(cmd) #if its not a repeat command, just add it
+                if cmd.valid: #only run if valid
+                    runlist.append(cmd) #if its not a repeat command, just add it
         
         return runlist
 
@@ -1046,6 +1077,7 @@ class Macro:
             for i in self.keys:
                 if i == self.mhvar.get():
                     self.add_marker()
+    
 
     def update_exectime(self): #re-calculates execution time of program
         sec = 0
@@ -1061,6 +1093,17 @@ class Macro:
 
         #now set the label to sec
         self.exectime.set("Execution Time: " + str(sec) + "s")
+
+    def update_listbox(self): #updates gui of listbox
+        for i in range(0, len(self.commands)):
+            cmd = self.commands[i]
+            if cmd.valid:
+                #make white
+                self.list.itemconfig(i,{'fg':'white'})
+            else:
+                #make gray
+                self.list.itemconfig(i,{'fg':'gray'})
+        
     
     def update_history(self, idx, val): #gets the idx from the dictionary and replaces _ with val
         labels = { #the _ will be replaced with values depending on label
@@ -1182,6 +1225,10 @@ class Macro:
 
             #update execution time
             self.update_exectime()
+
+            #update listbox gui
+            self.update_listbox()
+
         if self.get_active_tab() == "Marker":
             curr = self.mlist.curselection()
             del_len = len(curr)
@@ -1363,28 +1410,34 @@ class Macro:
         if window == "Program": #program tab
             cmd = self.commands[self.curr]
 
+            saved = True
+
             #save changes
-            if len(self.vals) > 1:
-                v0 = self.vals[0]
-                v1 = self.vals[1]
-                cmd.save([v0, v1])
-            else:
-                v0 = self.vals[0]
-                cmd.save([v0])
+            try:
+                if len(self.vals) > 1:
+                    v0 = self.vals[0].get()
+                    v1 = self.vals[1].get()
+                    cmd.save([v0, v1])
+                else:
+                    v0 = self.vals[0].get()
+                    cmd.save([v0])
+            except tk.TclError:
+                saved = False
 
-            #disable save button (we know which one it is bc we're in the edit menu)
-            self.editsave["state"] = "disabled"
-            
-            #update label
-            self.list.delete(self.curr)
-            self.list.insert(self.curr, cmd.label())
+            if saved:
+                #disable save button (we know which one it is bc we're in the edit menu)
+                self.editsave["state"] = "disabled"
+                
+                #update label
+                self.list.delete(self.curr)
+                self.list.insert(self.curr, cmd.label())
 
-            #update execution time
-            self.update_exectime()
+                #update execution time
+                self.update_exectime()
 
-            #update history log
-            if log:
-                self.update_history("edit", str(cmd.name).lower() + " command")
+                #update history log
+                if log:
+                    self.update_history("edit", str(cmd.name).lower() + " command")
         if window == "Marker":
             m = self.markers[self.mcurr]
 
@@ -1408,15 +1461,15 @@ class Macro:
 
         for i in range(0, len(runlist)):
             cmd = runlist[i]
+            if cmd.valid: #only run if the command is valid
+                if cmd.usekeydict: #input keydict if the command needs it 
+                    cmd.run(self.keydict)
+                else:
+                    cmd.run()
 
-            if cmd.usekeydict: #pass in keydict if the command needs it 
-                cmd.run(self.keydict)
-            else:
-                cmd.run()
-
-            if i < len(self.commands) - 1: #sleep for self.wait time if its not the last command
-                t.sleep(self.wait)
-        
+                if i < len(self.commands) - 1: #sleep for self.wait time if its not the last command
+                    t.sleep(self.wait)
+            
         #update history log
         if log:
             self.update_history("run", len(self.commands))
@@ -1431,6 +1484,9 @@ class Macro:
 
             #now update execution time
             self.update_exectime()
+
+            #update listbox gui
+            self.update_listbox()
 
             #update history log
             if log:
@@ -1918,6 +1974,12 @@ class Macro:
             except ValueError:
                 wait = 0.1 # just set to default if its invalid :/
 
+            hk = text.pop(0) #get the execution hotkey
+            if hk in list(self.keydict.keys()): #if its in the key dictionary, use it, otherwise its invalid (just set default)
+                self.hotkeyvar.set(hk)
+            else:
+                self.hotkeyvar.set("None")
+
             text.pop(0) #for filler line
 
             self.titlevar.set(title)
@@ -1985,7 +2047,7 @@ class Macro:
                         
                         self.listbox_add(cmd, False)
                 
-                except TypeError: #just dont add it if theres a casting error
+                except (TypeError, tk.TclError): #just dont add it if theres a casting error
                     continue
 
             self.update_history("import", title.removesuffix("\n") + ".txt")
@@ -2011,14 +2073,16 @@ class Macro:
 
         text.append(filename.removesuffix(".txt")) #remove .txt for the text
         text.append(str(self.wait))
+        text.append(str(self.hotkey))
         text.append("")
 
         #now put the commands
         for i in self.commands:
-            s = str(i.name) + "," + str(i.vals[0])
-            if len(i.vals) > 1:
-                s += "," + str(i.vals[1])
-            text.append(s)
+            if i.valid: #only write the valid commands to the file
+                s = str(i.name) + "," + str(i.vals[0])
+                if len(i.vals) > 1:
+                    s += "," + str(i.vals[1])
+                text.append(s)
 
         #ask for file directory
         path = fd.askdirectory()
