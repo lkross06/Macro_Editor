@@ -15,9 +15,9 @@ TODO LIST
 - use self.intbounds in Macro
 - separate logic + gui ?
 - fix gui css
-- implement markers for commands
 - use tk filedialog to add alerts
 - improve marker canvas (make text labels show up anywhere, make dimensions bigger to fit everything?)
+- USE A LISTENER FOR EXECUTION HOTKEYS!!
 '''
 
 '''
@@ -51,11 +51,11 @@ COMMAND
 generic class for command objects
 '''
 class Command:
-    def __init__(self, name, vals, usekeydict, typestr):
+    def __init__(self, name, vals, dict, typestr):
         self.name = str(name) #identification var
         self.vals = vals #values to use to run (dynamic size, based on command)
         self.intbounds = [1, 100] #bounds for commands that use int values (i.e. hold for n seconds)
-        self.usekeydict = usekeydict
+        self.dict = dict #"n" = no dictionary, "k" = keydict, "m" = markerdict
         self.type = typestr
         self.valid = False
 
@@ -81,7 +81,7 @@ vals[1] = (int) how many times to click
 '''
 class Click(Command):
     def __init__(self):
-        Command.__init__(self, "Click", [None, None], True, "Button")
+        Command.__init__(self, "Click", [None, None], "k", "Button")
         #we need both controllers bc the user can click keys or mouse buttons
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
@@ -116,7 +116,7 @@ vals[1] = how long (sec) to hold it
 '''
 class Hold(Command):
     def __init__(self):
-        Command.__init__(self, "Hold", [None, None], True, "Button")
+        Command.__init__(self, "Hold", [None, None], "k", "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
@@ -154,7 +154,7 @@ vals[0] = string  to press
 '''
 class Press(Command):
     def __init__(self):
-        Command.__init__(self, "Press", [None], True, "Button")
+        Command.__init__(self, "Press", [None], "k", "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
@@ -182,7 +182,7 @@ vals[0] = string  to release
 '''
 class Release(Command):
     def __init__(self):
-        Command.__init__(self, "Release", [None], True, "Button")
+        Command.__init__(self, "Release", [None], "k", "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
@@ -210,7 +210,7 @@ vals[0] = string (1+ character) to type
 '''
 class Type(Command):
     def __init__(self):
-        Command.__init__(self, "Type", [None], False, "Button")
+        Command.__init__(self, "Type", [None], "n", "Button")
         self.controller = keyboard.Controller() #you cant type mouse buttons, so we just need keyboard
 
     def label(self):
@@ -229,70 +229,67 @@ class Type(Command):
 '''
 MOVE MOUSE
 name = "Move Mouse"
-vals[0] = x coord to move to (0 <= x <= width)
-vals[1] = y coord to move to (0 <= y <= height)
+vals[0] = name of marker to move to
 '''
 class MoveMouse(Command):
     def __init__(self):
-        Command.__init__(self, "Move Mouse", [None, None], False, "Mouse")
+        Command.__init__(self, "Move Mouse", [None], "m", "Mouse")
         self.controller = mouse.Controller()
 
     def label(self):
         v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
-        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
-        return "move mouse to (" + v0 + ", " + v1 + ")"
+        return "move mouse to " + v0
 
     def save(self, vals):
-        x = vals[0]
-        y = vals[1]
+        m = vals[0]
 
         self.valid = True
-        self.vals = [x, y]
+        self.vals = [m]
         return True
 
-    def run(self):
-        x = self.vals[0]
-        y = self.vals[1]
+    def run(self, mdict):
+        m = mdict[self.vals[0]] #get the marker
+        x = m.x
+        y = m.y
 
         self.controller.position = (x, y) #manually set position of mouse
 
 '''
 DRAG MOUSE
 name = "Drag Mouse"
-val[0] = where to drag mouse x coord to (0 to height)
-val[1] = where to drag mouse y coord to (0 to height)
+val[0] = name of marker to drag mouse to
 '''
 class DragMouse(Command):
     def __init__(self):
-        Command.__init__(self, "Drag Mouse", [None, None], True, "Mouse")
+        Command.__init__(self, "Drag Mouse", [None], "m", "Mouse")
         self.controller = mouse.Controller()
         self.time = 1 #how many seconds to drag before completion
         self.frames = 40 #how many frames in the drag animation (im treating this as an animation)
 
     def label(self):
         v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
-        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
-        return "drag mouse to (" + v0 + ", " + v1 + ")"
+        return "drag mouse to " + v0
 
     def save(self, vals):
-        x = vals[0]
-        y = vals[1]
+        m = vals[0]
 
         self.valid = True
-        self.vals = [x, y]
+        self.vals = [m]
         return True
 
     def getexectime(self):
         return self.time #drag always takes 1 second
 
-    def run(self, keydict):
+    def run(self, mdict):
         interval = self.time/self.frames
 
         #get old and new pos
         oldx = self.controller.position[0]
         oldy = self.controller.position[1]
-        newx = self.vals[0]
-        newy = self.vals[1]
+
+        m = mdict[self.vals[0]] #get new pos from marker
+        newx = m.x
+        newy = m.y
 
         #keep track of current mouse pos
         x = oldx
@@ -306,7 +303,7 @@ class DragMouse(Command):
         dy = (oldy - newy) / self.frames
 
         #start the drag by holding down lmb
-        self.controller.press(keydict["lmb"]) #left moues button to drag
+        self.controller.press(mouse.Button.left) #left moues button to drag
 
         for i in range(0, self.frames):
             x -= dx #im not gonna lie, idk why im subtracting, it just kinda works yk
@@ -318,7 +315,7 @@ class DragMouse(Command):
         self.controller.position = (newx, newy)
 
         #finally, release the drag
-        self.controller.release(keydict["lmb"])
+        self.controller.release(mouse.Button.left)
         
 '''
 SCROLL MOUSE (equivalent to 2-finger movement on touchpad)
@@ -327,7 +324,7 @@ vals[1] = direction (up, right, down, left)
 '''
 class Scroll(Command):
     def __init__(self):
-        Command.__init__(self, "Scroll Mouse", [None, None], False, "Mouse")
+        Command.__init__(self, "Scroll Mouse", [None, None], "n", "Mouse")
         self.controller = mouse.Controller()
 
     def label(self):
@@ -379,7 +376,7 @@ vals[0] = sec to sleep
 '''
 class Sleep(Command):
     def __init__(self):
-        Command.__init__(self, "Sleep", [None], False, "Other")
+        Command.__init__(self, "Sleep", [None], "n", "Other")
 
     def label(self):
         v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
@@ -407,7 +404,7 @@ vals[1] = how many lines after to repeat
 '''
 class Repeat(Command):
     def __init__(self):
-        Command.__init__(self, "Repeat", [None, None], False, "Other")
+        Command.__init__(self, "Repeat", [None, None], "n", "Other")
 
     def label(self):
         v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
@@ -1162,6 +1159,14 @@ class Macro:
     def get_active_tab(self): #gets the name of the currently open tab
         return self.notebook.tab(self.notebook.select(), "text")
 
+    def get_mdict(self):
+        #create the marker dictionary
+        mdict = {}
+        for i in self.markers:
+            mdict[i.name] = i
+        
+        return mdict
+
     def add_marker(self):
         #get current mouse pos
         con = mouse.Controller()
@@ -1477,13 +1482,17 @@ class Macro:
     def run(self, log = True): #run the program!!
         runlist = self.load_runlist() #get the runlists
 
+        mdict = self.get_mdict() #get the markers as a dictionary
+
         for i in range(0, len(runlist)):
             cmd = runlist[i]
             if cmd.valid: #only run if the command is valid
-                if cmd.usekeydict: #input keydict if the command needs it 
-                    cmd.run(self.keydict)
-                else:
+                if cmd.dict == "n": #input keydict if the command needs it 
                     cmd.run()
+                elif cmd.dict == "k":
+                    cmd.run(self.keydict)
+                elif cmd.dict =="m":
+                    cmd.run(mdict)
 
                 if i < len(self.commands) - 1: #sleep for self.wait time if its not the last command
                     t.sleep(self.wait)
@@ -1785,36 +1794,28 @@ class Macro:
     def load_movemouse(self): #load movemouse frame onto edit frame
         frame = self.edit
 
-        c0 = Label(frame, text="move mouse to (")
+        c0 = Label(frame, text="move mouse to ")
         c0.grid(row=0, column=0)
 
-        val0 = tk.IntVar()
+        val0 = tk.StringVar()
         val0.set(self.commands[self.curr].vals[0])
         self.vals.append(val0)
         
-        #x bounds: 0 to width of screen
-        c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.width, width=5) 
+        c1 = Combobox(frame, textvariable=self.vals[0], width=10)
+        c1["values"] = list(self.get_mdict().keys())
+        c1.state(["readonly"])
         c1.grid(row=0, column=1)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
         val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
 
-        c2 = Label(frame, text=", ")
+        c2 = Label(frame, text="")
         c2.grid(row=0, column=2)
 
-        val1 = tk.IntVar()
-        val1.set(self.commands[self.curr].vals[1])
-        self.vals.append(val1)
-
-        #y bounds: 0 to height of screen
-        c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.height, width=5) 
+        c3 = Label(frame, text="") 
         c3.grid(row=0, column=3)
 
-        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
-        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
-
-        #y bounds: 0 to height of screen
-        c4 = Label(frame, text=")")
+        c4 = Label(frame, text="")
         c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
@@ -1826,36 +1827,28 @@ class Macro:
     def load_dragmouse(self): #load dragmouse frame onto edit frame
         frame = self.edit
 
-        c0 = Label(frame, text="drag mouse to (")
+        c0 = Label(frame, text="drag mouse to ")
         c0.grid(row=0, column=0)
 
-        val0 = tk.IntVar()
+        val0 = tk.StringVar()
         val0.set(self.commands[self.curr].vals[0])
         self.vals.append(val0)
-        
-        #x bounds: 0 to width of screen
-        c1 = Spinbox(frame, textvariable=self.vals[0], from_=0, to=self.width, width=5) 
+        #width 10 bc the entry in marker tab edit frame is width 10
+        c1 = Combobox(frame, textvariable=self.vals[0], width=10)
+        c1["values"] = list(self.get_mdict().keys())
+        c1.state(["readonly"])
         c1.grid(row=0, column=1)
 
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
         val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
 
-        c2 = Label(frame, text=", ")
+        c2 = Label(frame, text="")
         c2.grid(row=0, column=2)
 
-        val1 = tk.IntVar()
-        val1.set(self.commands[self.curr].vals[1])
-        self.vals.append(val1)
-
-        #y bounds: 0 to height of screen
-        c3 = Spinbox(frame, textvariable=self.vals[1], from_=0, to=self.height, width=5) 
+        c3 = Label(frame, text="") 
         c3.grid(row=0, column=3)
 
-        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
-        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
-
-        #y bounds: 0 to height of screen
-        c4 = Label(frame, text=")")
+        c4 = Label(frame, text="")
         c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
