@@ -1158,9 +1158,6 @@ class Macro:
 
         #add to listbox
         self.listbox_add(m)
-
-        #update the canvas
-        self.update_canvas()
     
     def update_canvas(self): #updates the canvas GUI by redrawing everything
         #clear canvas
@@ -1485,8 +1482,18 @@ class Macro:
     def listbox_toggle(self, event): #toggle when the mouse is over the listbox (and items can be selected)
         self.inlistbox = not(self.inlistbox)
     
-    def listbox_add(self, x, log = True): #add command to the listbox
-        if self.get_active_tab() == "Program":
+    def listbox_add(self, x, log = True, tab = "a"): #add command to the listbox
+        print(x.name)
+
+        #tab = "a": use active tab, tab = "p": set to program, tab = "m": set to marker
+        if tab == "a":
+            tab = self.get_active_tab()
+        elif tab == "p":
+            tab = "Program"
+        elif tab == "m":
+            tab = "Marker"
+
+        if tab == "Program":
             self.list.insert(len(self.commands), x.label())
             self.commands.append(x)
 
@@ -1500,9 +1507,12 @@ class Macro:
             if log:
                 self.update_history("add", str(x.name).lower() + " command")
 
-        if self.get_active_tab() == "Marker":
+        if tab == "Marker":
             self.mlist.insert(len(self.markers), x.name)
             self.markers.append(x)
+
+            #update canvas
+            self.update_canvas()
 
             #update history log
             if log:
@@ -1988,75 +1998,86 @@ class Macro:
             else:
                 self.hotkeyvar.set("None")
 
+            mh = text.pop(0) #get the marker hotkey
+            if mh in list(self.keydict.keys()): #if its in the key dictionary, use it, otherwise its invalid (just set default)
+                self.hotkeyvar.set(mh)
+            else:
+                self.hotkeyvar.set("space")
+
             text.pop(0) #for filler line
 
             self.titlevar.set(title)
             self.waitvar.set(wait)
             self.update_program(False)
+            self.update_markerhotkey(False)
+
+            commands = True
 
             for i in text: #now we transcribe commands
-                i = i.split(",")
+                i = i.removesuffix("\n")
 
-                name = i[0]
-                v0 = i[1]
-                v1 = None
-                if len(i) > 2:
-                    v1 = i[2]
-                
-                try:
-                    if name == "Click": #same as self.click() but it saves the new data to the obj before adding it
-                        cmd = Click()
-                        cmd.save([v0, v1])
+                if i == "": #its the end of the commands
+                    commands = False #tell the program to switch to recording markers
+                else:
+                    i = i.split(",")
 
-                        self.listbox_add(cmd, False)
-                    if name == "Hold":
-                        cmd = Hold()
-                        cmd.save([v0, v1])
+                    if commands:
+                        name = i[0]
+                        v0 = i[1]
+                        v1 = None
+                        if len(i) > 2:
+                            v1 = i[2]
+
+                        #now we gotta cast all the bruhs
+                        try:
+                            if name == "Click": #same as self.click() but it saves the new data to the obj before adding it
+                                cmd = Click()
+                                cmd.save([v0, int(v1)])
+                            if name == "Hold":
+                                cmd = Hold()
+                                cmd.save([v0, float(v1)])
+                            if name == "Press":
+                                cmd = Press()
+                                cmd.save([v0])
+                            if name == "Release":
+                                cmd = Release()
+                                cmd.save([v0])
+                            if name == "Type":
+                                cmd = Type()
+                                cmd.save([v0])
+                            if name == "Move Mouse":
+                                cmd = MoveMouse()
+                                cmd.save([int(v0), int(v1)])
+                            if name == "Drag Mouse":
+                                cmd = DragMouse()
+                                cmd.save([int(v0), int(v1)])
+                            if name == "Scroll Mouse":
+                                cmd = Scroll()
+                                cmd.save([int(v0), v1])
+                            if name == "Sleep":
+                                cmd = Click()
+                                cmd.save([float(v0)])
+                            if name == "Repeat":
+                                cmd = Repeat()
+                                cmd.save([int(v0), int(v1)])
+                                
+                            self.listbox_add(cmd, False, "p") #add to listbox
                         
-                        self.listbox_add(cmd, False)
-                    if name == "Press":
-                        cmd = Press()
-                        cmd.save([v0])
-                        
-                        self.listbox_add(cmd, False)
-                    if name == "Release":
-                        cmd = Release()
-                        cmd.save([v0])
-                        
-                        self.listbox_add(cmd, False)
-                    if name == "Type":
-                        cmd = Type()
-                        cmd.save([v0])
-                        
-                        self.listbox_add(cmd, False)
-                    if name == "Move Mouse":
-                        cmd = MoveMouse()
-                        cmd.save([v0, v1])
-                        
-                        self.listbox_add(cmd, False)
-                    if name == "Drag Mouse":
-                        cmd = DragMouse()
-                        cmd.save([v0, v1])
-                        
-                        self.listbox_add(cmd, False)
-                    if name == "Scroll Mouse":
-                        cmd = Scroll()
-                        cmd.save([v0, v1])
-                        
-                        self.listbox_add(cmd, False)
-                    if name == "Sleep":
-                        cmd = Click()
-                        cmd.save([v0])
-                        
-                        self.listbox_add(cmd, False)
-                    if name == "Repeat":
-                        cmd = Repeat()
-                        cmd.save([v0, v1])
-                        
-                        self.listbox_add(cmd, False)
-                
-                except (TypeError, tk.TclError): #just dont add it if theres a casting error
-                    continue
+                        except (TypeError, tk.TclError): #just dont add it if theres a casting error
+                            continue
+                    
+                    else: #interpret commands
+                        try:
+                            name = i[0]
+                            x = int(i[1])
+                            y = int(i[2])
+
+                            print(name)
+
+                            m = Marker(x, y, name)
+                            self.listbox_add(m, False, "m") #make it add a marker, not a command
+                        except (TypeError, tk.TclError): #keep going if theres an error (disregard it)
+                            continue
 
             self.update_history("import", title.removesuffix("\n") + ".txt")
 
@@ -2082,6 +2103,7 @@ class Macro:
         text.append(filename.removesuffix(".txt")) #remove .txt for the text
         text.append(str(self.wait))
         text.append(str(self.hotkey))
+        text.append(str(self.mh))
         text.append("")
 
         #now put the commands
@@ -2091,6 +2113,14 @@ class Macro:
                 if len(i.vals) > 1:
                     s += "," + str(i.vals[1])
                 text.append(s)
+
+        #buffer line
+        text.append("")
+
+        #now put markers
+        for i in self.markers:
+            s = str(i.name) + "," + str(i.x) + "," + str(i.y)
+            text.append(s)
 
         #ask for file directory
         path = fd.askdirectory()
