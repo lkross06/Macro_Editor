@@ -10,6 +10,17 @@ import os
 import random as rand
 
 '''
+TODO LIST
+- make all entry/spinbox/combobox update to not allow bad input
+- use self.intbounds in Macro
+- separate logic + gui ?
+- fix gui css
+- indent items in listbox below repeat?
+- add markers to txt files
+- implement markers for commands
+'''
+
+'''
 MARKER
 generic object for marking a location on the screen for coordinate-based commands
 '''
@@ -371,7 +382,7 @@ REPEAT
 vals[0] = how many times to repeat
 vals[1] = how many lines after to repeat
 '''
-class Repeat(Command): #TODO: indent the lines below on listbox?
+class Repeat(Command):
     def __init__(self):
         Command.__init__(self, "Repeat", [1, 1], False, "Other") #default value: sleep for 1 second
 
@@ -404,9 +415,10 @@ class Macro:
     def __init__(self):
         self.commands = [] #list of commands to execute
         self.curr = None #keep track of the index of our current stock
-        self.marcurr = None #silly little pun because its marker curr
+        self.mcurr = None #silly little pun because its marker curr
         self.clipboard = [] #keeps track of all objects on clipboard
-        self.intbounds = (0, 100) #TODO: use this
+        self.mclipboard = []
+        self.intbounds = (0, 100)
 
         self.title = "Macro Editor" #name of application
         self.wait = 0.1 #seconds in-between each command
@@ -506,8 +518,6 @@ class Macro:
 
         #stop thread after loop closes
         mouselistener.stop()
-
-        #TODO: fix the HORRENDOUS gui css
 
     def program_tab(self): #the main page of the notebook widget
         tab = Frame(self.notebook)
@@ -712,6 +722,7 @@ class Macro:
         #edit frame
         self.medit = LabelFrame(tab, text="Edit", width=400)
         self.medit.grid(row=2, column=1, padx=5, pady=5, sticky="NWS")
+        self.medit.grid_propagate(False) #nonstretchy
 
         #set up grid
         self.medit.rowconfigure(0, weight=1)
@@ -866,14 +877,14 @@ class Macro:
         self.update_key()
 
     def load_curr_marker(self, i):
-        self.marcurr = i #since curr should only be used once at a time, we can just reuse it
+        self.mcurr = i #since curr should only be used once at a time, we can just reuse it
 
         #delete current edit tab children
         for i in self.medit.winfo_children():
             i.destroy()
 
         #load the edit frame
-        if self.marcurr != None:
+        if self.mcurr != None:
             self.load_marker()       
         else:
             self.load_editmarkerdefault()  
@@ -1142,111 +1153,209 @@ class Macro:
             save["state"] = "normal"
 
     def delete(self, log = True): #deletes a selection of commands in the listbox
-        curr = self.list.curselection()
-        del_len = len(curr)
+        if self.get_active_tab() == "Program":
+            curr = self.list.curselection()
+            del_len = len(curr)
 
-        if del_len < 1: #the user is using the button in the edit menu OR nothing is selected for menu widget
-            if self.curr != None:
-                curr = self.curr
+            if del_len < 1: #the user is using the button in the edit menu OR nothing is selected for menu widget
+                if self.curr != None:
+                    curr = self.curr
 
-                self.commands.pop(curr)
-                self.list.delete(curr)
+                    self.commands.pop(curr)
+                    self.list.delete(curr)
+
+                    #add to history log if its not part of a cut (thats handled separately)
+                    if log:
+                        self.update_history("delete", 1)
+            else: #the user is using the menu widget, so we can just delete the current selection
+                for i in range(0, len(curr)): #iterates through n elements to delete (delete the labels)
+                    self.commands.pop(curr[0]) #delete from the first element in selection
+            
+                self.list.delete(curr[0], curr[len(curr) - 1]) #delete from listbox
 
                 #add to history log if its not part of a cut (thats handled separately)
                 if log:
-                    self.update_history("delete", 1)
-        else: #the user is using the menu widget, so we can just delete the current selection
-            for i in range(0, len(curr)): #iterates through n elements to delete (delete the labels)
-                self.commands.pop(curr[0]) #delete from the first element in selection
+                    self.update_history("delete", del_len)
         
-            self.list.delete(curr[0], curr[len(curr) - 1]) #delete from listbox
+            #update the program (that nothing is selected)
+            self.load_curr(None)
 
-            #add to history log if its not part of a cut (thats handled separately)
-            if log:
-                self.update_history("delete", del_len)
-    
-        #update the program (that nothing is selected)
-        self.load_curr(None)
-
-        #update execution time
-        self.update_exectime()
-
-    def copy(self, log = True): #copy commands indices to the clipboard
-        self.clipboard = [] #reset clipboard
-        for i in self.list.curselection():
-            self.clipboard.append(self.commands[i]) #add everything to keyboard
-        
-        #add to history log if anything was copied and if its not part of a cut (thats handled separately)
-        clipboard_length = len(self.list.curselection())
-        if clipboard_length > 0 and log:
-            self.update_history("copy", clipboard_length)
-
-        #TODO: configure these commands to work for markers? use nb.tab(nb.select(), "text") to get name off active tab
-
-    def paste(self, log = True): #paste all indices from clipboard after current selection
-        if len(self.clipboard) > 0:
-            if self.curr != None: #insert into program
-                i = self.curr
-
-                #remove labels (after self.curr) from listbox
-                self.list.delete(i + 1, len(self.commands))
-
-                #pop command objs from commands
-                after = []
-                for j in range(i + 1, len(self.commands)):
-                    #every time we pop, the indices shift, so we just keep popping the item after curr
-                    after.append(self.commands.pop(i + 1))
-                
-                #add new stuffs
-                for cmd in self.clipboard: 
-                    self.listbox_add(cmd)
-
-                #now add back everything else
-                for cmd in after:
-                    self.listbox_add(cmd)
-                    
-            else: #if nothing is selected, just add to the end of the program
-                for i in self.clipboard:
-                    self.listbox_add(i)
-            
             #update execution time
             self.update_exectime()
+        if self.get_active_tab() == "Marker":
+            curr = self.mlist.curselection()
+            del_len = len(curr)
+
+            if del_len < 1: #the user is using the button in the edit menu OR nothing is selected for menu widget
+                if self.mcurr != None:
+                    curr = self.mcurr
+
+                    self.markers.pop(curr)
+                    self.mlist.delete(curr)
+
+                    #add to history log if its not part of a cut (thats handled separately)
+                    if log:
+                        self.update_history("delete", 1)
+            else: #the user is using the menu widget, so we can just delete the current selection
+                for i in range(0, len(curr)): #iterates through n elements to delete (delete the labels)
+                    self.markers.pop(curr[0]) #delete from the first element in selection
             
-            #add to history log
-            if log:
-                self.update_history("paste", len(self.clipboard))
-    
+                self.mlist.delete(curr[0], curr[len(curr) - 1]) #delete from listbox
+
+                #add to history log if its not part of a cut (thats handled separately)
+                if log:
+                    self.update_history("delete", del_len)
+        
+            #update the program (that nothing is selected)
+            self.load_curr_marker(None)
+
+            #update canvas
+            self.update_canvas()
+
+    def copy(self, log = True): #copy commands indices to the clipboard
+        if self.get_active_tab() == "Program":
+            self.clipboard = [] #reset clipboard
+            for i in self.list.curselection():
+                self.clipboard.append(self.commands[i]) #add everything to clipboard
+            
+            #add to history log if anything was copied and if its not part of a cut (thats handled separately)
+            clipboard_length = len(self.list.curselection())
+            if clipboard_length > 0 and log:
+                self.update_history("copy", clipboard_length)
+        if self.get_active_tab() == "Marker":
+            self.mclipboard = [] #reset clipboard
+            for i in self.mlist.curselection():
+                self.mclipboard.append(self.markers[i]) #add everything to clipboard
+            
+            #add to history log if anything was copied and if its not part of a cut (thats handled separately)
+            clipboard_length = len(self.mlist.curselection())
+            if clipboard_length > 0 and log:
+                self.update_history("copy", clipboard_length)
+
+    def paste(self, log = True): #paste all indices from clipboard after current selection
+        if self.get_active_tab() == "Program":
+            if len(self.clipboard) > 0:
+                if self.curr != None: #insert into program
+                    i = self.curr
+
+                    #remove labels (after self.curr) from listbox
+                    self.list.delete(i + 1, len(self.commands))
+
+                    #pop command objs from commands
+                    after = []
+                    for j in range(i + 1, len(self.commands)):
+                        #every time we pop, the indices shift, so we just keep popping the item after curr
+                        after.append(self.commands.pop(i + 1))
+                    
+                    #add new stuffs
+                    for cmd in self.clipboard: 
+                        self.listbox_add(cmd)
+
+                    #now add back everything else
+                    for cmd in after:
+                        self.listbox_add(cmd)
+                        
+                else: #if nothing is selected, just add to the end of the program
+                    for i in self.clipboard:
+                        self.listbox_add(i)
+                
+                #update execution time
+                self.update_exectime()
+                
+                #add to history log
+                if log:
+                    self.update_history("paste", len(self.clipboard))
+        if self.get_active_tab() == "Marker":
+            if self.mcurr != None: #insert into program
+                i = self.mcurr
+
+                #remove labels (after self.mcurr) from listbox
+                self.mlist.delete(i + 1, len(self.markers))
+
+                #pop marker objs from markers
+                after = []
+                for j in range(i + 1, len(self.markers)):
+                    #every time we pop, the indices shift, so we just keep popping the item after curr
+                    after.append(self.markers.pop(i + 1))
+                
+                #add new stuffs
+                for m in self.mclipboard: 
+                    self.listbox_add(m)
+
+                #now add back everything else
+                for m in after:
+                    self.listbox_add(m)
+                    
+            else: #if nothing is selected, just add to the end of the program
+                for i in self.mclipboard:
+                    self.listbox_add(i)
+            
+                #update canvas
+                self.update_canvas()
+                
+                #add to history log
+                if log:
+                    self.update_history("paste", len(self.mclipboard))
+        
     def cut(self, log = True): #copies selection and deletes it
-        #store length for history log
-        cut_len = len(self.list.curselection())
+        if self.get_active_tab() == "Program":
+            #store length for history log
+            cut_len = len(self.list.curselection())
 
-        #tell the functions that they are part of a cut command
-        self.copy(False) #no matter what, it shouldnt log anything
-        self.delete(False)
+            #tell the functions that they are part of a cut command
+            self.copy(False) #no matter what, it shouldnt log anything
+            self.delete(False)
 
-        #now add to history log
-        if log:
-            self.update_history("cut", cut_len)
+            #now add to history log
+            if log:
+                self.update_history("cut", cut_len)
+        if self.get_active_tab() == "Marker":
+            #store length for history log
+            cut_len = len(self.mlist.curselection())
 
+            #tell the functions that they are part of a cut command
+            self.copy(False) #no matter what, it shouldnt log anything
+            self.delete(False)
+
+            #now add to history log
+            if log:
+                self.update_history("cut", cut_len)
     
     def clear(self, log = True): #reset all dynamic vals
-        self.curr = None
-        self.program_len = self.list.size() #store for history log
-        self.list.delete(0, self.list.size())
-        self.commands = []
-        self.vals = []
-        
-        self.waitvar.set(0.1)
-        self.titlevar.set("Macro Editor")
+        if self.get_active_tab() == "Program":
+            self.curr = None
+            self.list.delete(0, self.list.size())
+            self.commands = []
+            self.vals = []
+            #dont clear clipboard
+            
+            self.waitvar.set(0.1)
+            self.titlevar.set("Macro Editor")
 
-        #now update the program to display it
-        self.load_curr(self.curr)
-        self.update_exectime()
-        self.update_program(log) #if this function shouldnt log, update_program shouldnt log either
+            #now update the program to display it
+            self.load_curr(self.curr)
+            self.update_exectime()
+            self.update_program(log) #if this function shouldnt log, update_program shouldnt log either
 
-        #update history log
-        if log:
-            self.update_history("clear", None) #no val for this entry
+            #update history log
+            if log:
+                self.update_history("clear", None) #no val for this entry
+        if self.get_active_tab() == "Marker":
+            self.mcurr = None
+            self.markers = []
+            self.mlist.delete(0, self.mlist.size()) #clear listbox
+            #dont clear clipboard
+
+            self.mhvar.set("space")
+
+            #update things
+            self.load_curr_marker(self.mcurr)
+            self.update_markerhotkey(log)
+            self.update_canvas()
+
+            #update history log
+            if log:
+                self.update_history("clear", None) #no value for this entry
     
     def save(self, log = True): #save the edits to the current command
         window = self.get_active_tab() #get current tab (this function is different for different tabs)
@@ -1277,7 +1386,7 @@ class Macro:
             if log:
                 self.update_history("edit", str(cmd.name).lower() + " command")
         if window == "Marker":
-            m = self.markers[self.marcurr]
+            m = self.markers[self.mcurr]
 
             #save changes
             x = self.mx.get()
@@ -1290,8 +1399,8 @@ class Macro:
             self.update_canvas() 
 
             #update listbox label
-            self.mlist.delete(self.marcurr)
-            self.mlist.insert(self.marcurr, m.name)
+            self.mlist.delete(self.mcurr)
+            self.mlist.insert(self.mcurr, m.name)
 
     
     def run(self, log = True): #run the program!!
@@ -1356,9 +1465,7 @@ class Macro:
     def load_marker(self):
         frame = self.medit
 
-        #TODO: replace all save buttons with nothing? idfk
-
-        marker = self.markers[self.marcurr]
+        marker = self.markers[self.mcurr]
 
         #name label
         n1 = Label(frame, text="Name:")
