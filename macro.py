@@ -15,7 +15,6 @@ TODO LIST
 - use self.intbounds in Macro
 - separate logic + gui ?
 - fix gui css
-- add markers to txt files
 - implement markers for commands
 - use tk filedialog to add alerts
 - improve marker canvas (make text labels show up anywhere, make dimensions bigger to fit everything?)
@@ -448,7 +447,7 @@ class Macro:
         self.intbounds = (0, 100)
 
         self.title = "Macro Editor" #name of application
-        self.wait = 0.1 #seconds in-between each command
+        self.wait = 0.5 #seconds in-between each command
         self.hotkey = None #run program when this hotkey is pressed
         self.mh = "space" #add a marker when this hotkey is pressed and the marker tab is active
         self.vals = [] #this will transfer gui info to commands
@@ -1093,22 +1092,36 @@ class Macro:
         self.exectime.set("Execution Time: " + str(sec) + "s")
 
     def update_listbox(self): #updates gui of listbox
+        indents = [0 for x in range(0, len(self.commands))] #contains indices to indent. if an index appears again, its indented again
+
+        #check for indents
         for i in range(0, len(self.commands)):
             cmd = self.commands[i]
+            if cmd.name == "Repeat" and cmd.valid: #only indent if its a valid repeat
+                lines = cmd.vals[1]
+                for j in range(i + 1, i + lines + 1): #get the lines affected by the repeat command
+                    if j < len(self.commands): #only add if its in the list
+                        indents[j] += 1 #add one more indent to index j
+
+        #now add indents and edit colors
+        for i in range(0, len(self.commands)):
+            cmd = self.commands[i]
+            
+            label = cmd.label()
+            for j in range(0, indents[i]):
+                label = "\t" + label #add all the indents
+            
+            #now replace label
+            self.list.delete(i)
+            self.list.insert(i, label)
+
             if cmd.valid:
                 #make white
                 self.list.itemconfig(i,{'fg':'white'})
             else:
                 #make gray
                 self.list.itemconfig(i,{'fg':'gray'})
-            if cmd.name == "Repeat" and cmd.valid: #only indent if its a valid repeat
-                lines = cmd.vals[1]
-                for j in range(i + 1, i + lines + 1): #get the lines affected by the repeat command
-                    if j < len(self.commands): #only add if its in the list
-                        #replace label with indented version
-                        self.list.delete(j)
-                        self.list.insert(j, "\t" + self.commands[j].label())
-        
+
     
     def update_history(self, idx, val): #gets the idx from the dictionary and replaces _ with val
         labels = { #the _ will be replaced with values depending on label
@@ -1483,7 +1496,6 @@ class Macro:
         self.inlistbox = not(self.inlistbox)
     
     def listbox_add(self, x, log = True, tab = "a"): #add command to the listbox
-        print(x.name)
 
         #tab = "a": use active tab, tab = "p": set to program, tab = "m": set to marker
         if tab == "a":
@@ -1990,7 +2002,7 @@ class Macro:
             try:
                 wait = float(wait)
             except ValueError:
-                wait = 0.1 # just set to default if its invalid :/
+                wait = 0.5 # just set to default if its invalid :/
 
             hk = text.pop(0) #get the execution hotkey
             if hk in list(self.keydict.keys()): #if its in the key dictionary, use it, otherwise its invalid (just set default)
@@ -2071,8 +2083,6 @@ class Macro:
                             name = i[0]
                             x = int(i[1])
                             y = int(i[2])
-
-                            print(name)
 
                             m = Marker(x, y, name)
                             self.listbox_add(m, False, "m") #make it add a marker, not a command
