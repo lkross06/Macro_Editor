@@ -15,10 +15,8 @@ TODO LIST
 - use self.intbounds in Macro
 - separate logic + gui ?
 - fix gui css
-- indent items in listbox below repeat?
 - add markers to txt files
 - implement markers for commands
-- remove default values, update import/export accordingly
 - use tk filedialog to add alerts
 - improve marker canvas (make text labels show up anywhere, make dimensions bigger to fit everything?)
 '''
@@ -1103,6 +1101,13 @@ class Macro:
             else:
                 #make gray
                 self.list.itemconfig(i,{'fg':'gray'})
+            if cmd.name == "Repeat" and cmd.valid: #only indent if its a valid repeat
+                lines = cmd.vals[1]
+                for j in range(i + 1, i + lines + 1): #get the lines affected by the repeat command
+                    if j < len(self.commands): #only add if its in the list
+                        #replace label with indented version
+                        self.list.delete(j)
+                        self.list.insert(j, "\t" + self.commands[j].label())
         
     
     def update_history(self, idx, val): #gets the idx from the dictionary and replaces _ with val
@@ -1434,6 +1439,9 @@ class Macro:
 
                 #update execution time
                 self.update_exectime()
+
+                #update listbox
+                self.update_listbox()
 
                 #update history log
                 if log:
