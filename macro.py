@@ -8,6 +8,7 @@ import pynput.mouse as mouse #Listener, Button, Controller
 import time as t
 import os
 import random as rand
+import threading
 
 '''
 TODO LIST
@@ -443,6 +444,9 @@ class Macro:
         self.mclipboard = []
         self.intbounds = (0, 100)
 
+        #handles quitting threads
+        self.quit = False
+
         self.title = "Macro Editor" #name of application
         self.wait = 0.5 #seconds in-between each command
         self.hotkey = None #run program when this hotkey is pressed
@@ -470,7 +474,7 @@ class Macro:
         self.keydict = {chr(x):chr(x) for x in no_shift} # character name : character
 
         #now add the others
-        self.keydict["space"] = " "
+        self.keydict["space"] = keyboard.Key.space
         self.keydict["bs"] = keyboard.Key.backspace
         self.keydict["caps"] = keyboard.Key.caps_lock
         self.keydict["cmd"] = keyboard.Key.cmd
@@ -485,41 +489,6 @@ class Macro:
 
         self.keys = [] #current keys pressed
 
-        #alphanumeric button handler
-        self.root.bind("<KeyPress>", self.handle_key_press)
-        self.root.bind("<KeyRelease>", self.handle_key_release)
-
-        #other buttons (key.char == "", so we use key.keysym to get key symbol)
-
-        #press
-        self.root.bind("<KeyPress-space>", lambda key : self.handle_other_key_press("space"))
-        self.root.bind("<KeyPress-Meta_R>", lambda key : self.handle_other_key_press("cmd"))
-        self.root.bind("<KeyPress-Meta_L>", lambda key : self.handle_other_key_press("cmd"))
-        self.root.bind("<KeyPress-Meta_R>", lambda key : self.handle_other_key_press("cmd"))
-        self.root.bind("<KeyPress-Control_L>", lambda key : self.handle_other_key_press("ctrl"))
-        self.root.bind("<KeyPress-Control_R>", lambda key : self.handle_other_key_press("ctrl"))
-        self.root.bind("<KeyPress-Shift_L>", lambda key : self.handle_other_key_press("shift"))
-        self.root.bind("<KeyPress-Shift_R>", lambda key : self.handle_other_key_press("shift"))
-        self.root.bind("<KeyPress-Tab>", lambda key : self.handle_other_key_press("tab"))
-        self.root.bind("<KeyPress-Caps_Lock>", lambda key : self.handle_other_key_press("caps"))
-        self.root.bind("<KeyPress-Escape>", lambda key : self.handle_other_key_press("esc"))
-        self.root.bind("<KeyPress-Return>", lambda key : self.handle_other_key_press("enter"))
-        self.root.bind("<KeyPress-BackSpace>", lambda key : self.handle_other_key_press("bs"))
-
-        #release
-        self.root.bind("<KeyRelease-space>", lambda key : self.handle_other_key_release("space"))
-        self.root.bind("<KeyRelease-Meta_L>", lambda key : self.handle_other_key_release("cmd"))
-        self.root.bind("<KeyRelease-Meta_R>", lambda key : self.handle_other_key_release("cmd"))
-        self.root.bind("<KeyRelease-Control_L>", lambda key : self.handle_other_key_release("ctrl"))
-        self.root.bind("<KeyRelease-Control_R>", lambda key : self.handle_other_key_release("ctrl"))
-        self.root.bind("<KeyRelease-Shift_L>", lambda key : self.handle_other_key_release("shift"))
-        self.root.bind("<KeyRelease-Shift_R>", lambda key : self.handle_other_key_release("shift"))
-        self.root.bind("<KeyRelease-Tab>", lambda key : self.handle_other_key_release("tab"))
-        self.root.bind("<KeyRelease-Caps_Lock>", lambda key : self.handle_other_key_release("caps"))
-        self.root.bind("<KeyRelease-Escape>", lambda key : self.handle_other_key_release("esc"))
-        self.root.bind("<KeyRelease-Return>", lambda key : self.handle_other_key_release("enter"))
-        self.root.bind("<KeyRelease-BackSpace>", lambda key : self.handle_other_key_release("bs"))
-
         #make the notebook for different tabs
         self.notebook = Notebook(self.root, height=700)
         self.notebook.grid(sticky="NESW")
@@ -533,14 +502,17 @@ class Macro:
         self.menu()
 
         # listener for mouse
-        mouselistener = mouse.Listener(on_move=self.update_mouse)
-        mouselistener.start()
+        self.root.bind('<Motion>', self.update_mouse) #on mouse movement, pynput retrieves mouse position again
 
-        #start the main loop
+        #add keyboard listener
+        keylistener = keyboard.Listener(on_press=self.handle_key_press, on_release=self.handle_key_release)
+        keylistener.start()
+
+        #start the main loop (has to be in the main thread)
         self.root.mainloop()
 
         #stop thread after loop closes
-        mouselistener.stop()
+        keylistener.stop()
 
     def program_tab(self): #the main page of the notebook widget
         tab = Frame(self.notebook)
@@ -884,19 +856,30 @@ class Macro:
             return chr(rtn)
 
     def handle_key_press(self, key):
-        self.keys.append(self.unshift(key.char))
-        self.update_key()
+        if type(key) == keyboard.KeyCode: #its either key.Key._ or keyboard.KeyCode._, and the former is handled alr
+            key = self.unshift(key.char)
+
+
+        vals = list(self.keydict.values())
+        keys = list(self.keydict.keys())
+
+        for i in range(0, len(keys)): #see if any of the key values in self.keydict match the pressed key
+            if key == vals[i]:
+                self.keys.append(keys[i])
+
+        self.update_key() #update the GUI
 
     def handle_key_release(self, key):
-        self.keys.remove(self.unshift(key.char))
-        self.update_key()
+        if type(key) == keyboard.KeyCode: #see handle_key_press
+            key = self.unshift(key.char)
+        
+        vals = list(self.keydict.values())
+        keys = list(self.keydict.keys())
 
-    def handle_other_key_press(self, key):
-        self.keys.append(key)
-        self.update_key()
+        for i in range(0, len(keys)):
+            if key == vals[i]:
+                self.keys.remove(keys[i])
 
-    def handle_other_key_release(self, key):
-        self.keys.remove(key)
         self.update_key()
 
     def load_curr_marker(self, i):
@@ -1045,9 +1028,10 @@ class Macro:
         if log:
             self.update_history("edit", "marker hotkey")
 
-    def update_mouse(self, x, y): #update mouse position from listener
-        mousepos = (int(x), int(y))
-        self.mousevar.set("Mouse Position: " + str(mousepos))
+    def update_mouse(self, e): #update mouse position when mouse moves
+        con = mouse.Controller()
+        pos = (int(con.position[0]), int(con.position[1]))
+        self.mousevar.set("Mouse Position: " + str(pos))
         
     def update_key(self):
         strkeys = ""
