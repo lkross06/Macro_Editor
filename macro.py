@@ -8,7 +8,6 @@ import pynput.mouse as mouse #Listener, Button, Controller
 import time as t
 import os
 import random as rand
-import threading
 
 '''
 TODO LIST
@@ -18,7 +17,8 @@ TODO LIST
 - fix gui css
 - use tk filedialog to add alerts
 - improve marker canvas (make text labels show up anywhere, make dimensions bigger to fit everything?)
-- USE A LISTENER FOR EXECUTION HOTKEYS!!
+- add commands that are like functions (allow user to customize their own commands, like scratch)
+- idk why but pressing caps lock triggers a zsh: trace trap (pls jk)
 '''
 
 '''
@@ -442,7 +442,7 @@ class Macro:
         self.mcurr = None #silly little pun because its marker curr
         self.clipboard = [] #keeps track of all objects on clipboard
         self.mclipboard = []
-        self.intbounds = (0, 100)
+        self.r = 4 #4px radius of circles in marker canvas
 
         #handles quitting threads
         self.quit = False
@@ -451,6 +451,7 @@ class Macro:
         self.wait = 0.5 #seconds in-between each command
         self.hotkey = None #run program when this hotkey is pressed
         self.mh = "space" #add a marker when this hotkey is pressed and the marker tab is active
+        self.mhgood = True #checks to see if a marker can be added on the first press of self.mh (prevent hold)
         self.vals = [] #this will transfer gui info to commands
         self.markers = [] #keep track of all available marker
 
@@ -662,6 +663,10 @@ class Macro:
         w = 500 #width is always 700px
         h = w / prop # get corresponding height
 
+        #prevents markers on edge from being cut off
+        w += self.r * 2
+        h += self.r * 2
+
         #canvas to show markers on screen
         self.mcanvas = tk.Canvas(tab, width=w, height=h)
 
@@ -859,14 +864,23 @@ class Macro:
         if type(key) == keyboard.KeyCode: #its either key.Key._ or keyboard.KeyCode._, and the former is handled alr
             key = self.unshift(key.char)
 
-
         vals = list(self.keydict.values())
         keys = list(self.keydict.keys())
 
         for i in range(0, len(keys)): #see if any of the key values in self.keydict match the pressed key
             if key == vals[i]:
+                key = keys[i] #use for checking hotkeys later (hotkeys follow keys of keydict system)
                 self.keys.append(keys[i])
 
+        #check if mh was pressed and its on the marker tab and its the first time mh has been pressed (not held)
+        if key == self.mh and self.get_active_tab() == "Marker" and self.mhgood:
+            self.add_marker()
+            self.mhgood = False
+
+        #now check if hotkey was pressed
+        if self.hotkey != None and key == self.hotkey:
+            self.run()
+    
         self.update_key() #update the GUI
 
     def handle_key_release(self, key):
@@ -875,10 +889,15 @@ class Macro:
         
         vals = list(self.keydict.values())
         keys = list(self.keydict.keys())
-
+        
         for i in range(0, len(keys)):
             if key == vals[i]:
+                key = keys[i] #use for checking hotkeys
                 self.keys.remove(keys[i])
+
+        #if mh was released and its in marker tab, then enable marker add
+        if key == self.mh and self.get_active_tab() == "Marker":
+            self.mhgood = True
 
         self.update_key()
 
@@ -1044,19 +1063,6 @@ class Macro:
 
         self.keyvar.set("Keys Pressed: " + strkeys)
 
-        #now check if hotkey was pressed
-        if self.hotkey != None:
-            for i in self.keys:
-                if i == self.hotkey: #if the hotkey is in the pressed keys
-                    self.run()
-
-        #if the marker tab is open, check if marker hotkey was pressed
-        if self.get_active_tab() == "Marker":
-            for i in self.keys:
-                if i == self.mhvar.get():
-                    self.add_marker()
-    
-
     def update_exectime(self): #re-calculates execution time of program
         sec = 0
         runlist = self.load_runlist() # load the runlist so we have the raw command queue
@@ -1183,14 +1189,48 @@ class Macro:
             cy = (sy * ch)/sh #canvas y
 
             #draw circle of radius 1
-            r = 3
-            self.mcanvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline = "#000000", fill = i.color) #center point at (cx, cy)
+            r = self.r - 1 #subtract 1 to account for 1px border (width = 1 by default)
+
+            #add r to all coordinates to shift it right+down (counteract the border upsizing)
+            self.mcanvas.create_oval(cx - r + r, cy - r + r, cx + r + r, cy + r + r, outline = "#000000", fill = i.color) #center point at (cx, cy)
 
             #now add the text
+
+            #offset values for text (by default, it will be above the marker by n px)
+            n = 8 #px away from center
+            ox = cx #offset x
+            oy = cy - n #offset y
+
+            a = "" #anchor -> by default it will be centered around (ox, oy), but we can change it
+
+            tx = 20 #threshold for x values (when to apply changes)
+            ty = 20 #threshold for y values (when to apply changes)
+
+            #possible anchor positions: n, ne, e, se, s, sw, w, nw, center
+            #since "n" and "s" go first, we handle y coords then x coords
+
+            if cy <= ty: #too high
+                oy += n
+                a += "n"
+            elif cy >= ch - ty: #too far down
+                oy -= n
+                a += "s"
+
+            if cx <= tx: #too far left
+                ox += n
+                a += "w"
+            elif cx >= cw - tx: #too far right
+                ox -= n
+                a += "e"
+
+            if a == "": #if no alterations were added to anchor, make it go to center
+                a ="center"
+
             #by default, the text is centered around x,y
-            self.mcanvas.create_text(cx, cy - (r + 10), \
-            text=i.name + " (" + str(sx) + ", " + str(sy) + ")", \
-            fill = "#000000") #name + coords
+            self.mcanvas.create_text(ox, oy, \
+                text= i.name + " (" + str(sx) + ", " + str(sy) + ")", \
+                fill = "#000000", \
+                anchor = a)
 
     #compares a dynamic variable to its starting value. if they differ, enable the save button to be pressed
     def enablesave(self, var, val, save): #var = variable to check, val = default value, save = button to change
