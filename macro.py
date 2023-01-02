@@ -16,7 +16,6 @@ TODO LIST
 - separate logic + gui ?
 - fix gui css
 - use tk filedialog to add alerts
-- improve marker canvas (make text labels show up anywhere, make dimensions bigger to fit everything?)
 - add commands that are like functions (allow user to customize their own commands, like scratch)
 - idk why but pressing caps lock triggers a zsh: trace trap (pls jk)
 '''
@@ -1196,7 +1195,7 @@ class Macro:
 
             #now add the text
 
-            #offset values for text (by default, it will be above the marker by n px)
+            #offset values for text (by default, it will be above the marker by n px in the x/y direction)
             n = 8 #px away from center
             ox = cx #offset x
             oy = cy - n #offset y
@@ -1210,10 +1209,10 @@ class Macro:
             #since "n" and "s" go first, we handle y coords then x coords
 
             if cy <= ty: #too high
-                oy += n
+                oy += (n * 2) #since default value is -n
                 a += "n"
             elif cy >= ch - ty: #too far down
-                oy -= n
+                #offset y doesnt need to change, by default oy = cy - n
                 a += "s"
 
             if cx <= tx: #too far left
