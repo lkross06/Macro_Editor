@@ -25,14 +25,23 @@ tkinter application to simulate user inputs with pynput (keyboard/mouse)
 '''
 class Macro:
     def __init__(self):
+        self.commands = [] #list of commands to execute
+        self.curr = None #keep track of the index of our current stock
+        self.mcurr = None #silly little pun because its marker curr
+        self.clipboard = [] #keeps track of all objects on clipboard
+        self.mclipboard = []
         self.r = 4 #4px radius of circles in marker canvas
+
+        #handles quitting threads
+        self.quit = False
 
         self.title = "Macro Editor" #name of application
         self.wait = 0.5 #seconds in-between each command
         self.hotkey = None #run program when this hotkey is pressed
         self.mh = "space" #add a marker when this hotkey is pressed and the marker tab is active
+        self.mhgood = True #checks to see if a marker can be added on the first press of self.mh (prevent hold)
         self.vals = [] #this will transfer gui info to commands
-        self.markers = [] #keep track of all available markers
+        self.markers = [] #keep track of all available marker
 
         self.root = tk.Tk() # Create a window
         self.root.title(self.title)
@@ -179,7 +188,6 @@ class Macro:
         wait1 = Label(manageframe, text="Execution Interval: ")
         wait1.grid(row=1, column=0, sticky="W")
 
-        #this one doesnt use standard intbounds
         wait2 = Spinbox(manageframe, from_=0, to=10, increment=0.1, textvariable=self.waitvar, width=10)
         wait2.grid(row=1, column=1, sticky="W")
 
@@ -450,21 +458,18 @@ class Macro:
         for i in range(0, len(keys)): #see if any of the key values in self.keydict match the pressed key
             if key == vals[i]:
                 key = keys[i] #use for checking hotkeys later (hotkeys follow keys of keydict system)
-        
-        #this function runs multiple times if a key is held down
-        #so this checks to make sure its the first time this key is pressed
-        if not(key in self.keys):
-            self.keys.append(key)
+                self.keys.append(keys[i])
 
-            #check if mh was pressed and its on the marker tab
-            if key == self.mh and self.get_active_tab() == "Marker":
-                self.add_marker()
+        #check if mh was pressed and its on the marker tab and its the first time mh has been pressed (not held)
+        if key == self.mh and self.get_active_tab() == "Marker" and self.mhgood:
+            self.add_marker()
+            self.mhgood = False
 
-            #now check if hotkey was pressed
-            if self.hotkey != None and key == self.hotkey:
-                self.run()
-        
-            self.update_key() #update the GUI
+        #now check if hotkey was pressed
+        if self.hotkey != None and key == self.hotkey:
+            self.run()
+    
+        self.update_key() #update the GUI
 
     def handle_key_release(self, key):
         if type(key) == keyboard.KeyCode: #see handle_key_press
@@ -476,11 +481,13 @@ class Macro:
         for i in range(0, len(keys)):
             if key == vals[i]:
                 key = keys[i] #use for checking hotkeys
-                
-        #avoid errors by checking if the key exists before
-        if key in self.keys:
-            self.keys.remove(key)
-            self.update_key()
+                self.keys.remove(keys[i])
+
+        #if mh was released and its in marker tab, then enable marker add
+        if key == self.mh and self.get_active_tab() == "Marker":
+            self.mhgood = True
+
+        self.update_key()
 
     def load_curr_marker(self, i):
         self.mcurr = i #since curr should only be used once at a time, we can just reuse it
