@@ -7,7 +7,6 @@ import pynput.keyboard as keyboard #Listener, Button, Controller
 import pynput.mouse as mouse #Listener, Button, Controller
 import time as t
 import os
-import random as rand
 from command import * #import from command.py
 from marker import * #import from marker.py
 
