@@ -410,7 +410,6 @@ class Macro:
         123-126 { | } ~
         '''
         
-        #yes this was done by hand
         #shifted value : unshifted value
         dict = \
             {33:49} | \
@@ -458,7 +457,7 @@ class Macro:
         keys = list(self.keydict.keys())
 
         for i in range(0, len(keys)): #see if any of the key values in self.keydict match the pressed key
-            if key == vals[i]:
+            if key == vals[i] and not(keys[i] in self.keys): #make sure the key isnt duplicated
                 key = keys[i] #use for checking hotkeys later (hotkeys follow keys of keydict system)
                 self.keys.append(keys[i])
 
@@ -1099,6 +1098,7 @@ class Macro:
     
     def run(self, log = True): #run the program!!
         runlist = self.load_runlist() #get the runlists
+        print(runlist)
 
         mdict = self.get_mdict() #get the markers as a dictionary
 
