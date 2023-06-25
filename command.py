@@ -9,8 +9,9 @@ COMMAND
 generic class for command objects
 '''
 class Command:
-    def __init__(self, name, vals, dict, typestr):
+    def __init__(self, id, name, vals, dict, typestr):
         self.name = str(name) #identification var
+        self.id = id #unique id for each command
         self.vals = vals #values to use to run (dynamic size, based on command)
         self.intbounds = [1, 100] #bounds for commands that use int values (i.e. hold for n seconds)
         self.dict = dict #"n" = no dictionary, "k" = keydict, "m" = markerdict
@@ -38,8 +39,8 @@ vals[0] = string to click
 vals[1] = (int) how many times to click
 '''
 class Click(Command):
-    def __init__(self):
-        Command.__init__(self, "Click", [None, None], "k", "Button")
+    def __init__(self, id):
+        Command.__init__(self, id, "Click", [None, None], "k", "Button")
         #we need both controllers bc the user can click keys or mouse buttons
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
@@ -73,8 +74,8 @@ vals[0] = string  to hold
 vals[1] = how long (sec) to hold it
 '''
 class Hold(Command):
-    def __init__(self):
-        Command.__init__(self, "Hold", [None, None], "k", "Button")
+    def __init__(self, id):
+        Command.__init__(self, id, "Hold", [None, None], "k", "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
@@ -111,8 +112,8 @@ name = "Press"
 vals[0] = string  to press
 '''
 class Press(Command):
-    def __init__(self):
-        Command.__init__(self, "Press", [None], "k", "Button")
+    def __init__(self, id):
+        Command.__init__(self, id, "Press", [None], "k", "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
@@ -139,8 +140,8 @@ name = "Release"
 vals[0] = string  to release
 '''
 class Release(Command):
-    def __init__(self):
-        Command.__init__(self, "Release", [None], "k", "Button")
+    def __init__(self, id):
+        Command.__init__(self, id, "Release", [None], "k", "Button")
         self.key = keyboard.Controller()
         self.mouse = mouse.Controller()
 
@@ -167,8 +168,8 @@ name = "Type"
 vals[0] = string (1+ character) to type
 '''
 class Type(Command):
-    def __init__(self):
-        Command.__init__(self, "Type", [None], "n", "Button")
+    def __init__(self, id):
+        Command.__init__(self, id, "Type", [None], "n", "Button")
         self.controller = keyboard.Controller() #you cant type mouse buttons, so we just need keyboard
 
     def label(self):
@@ -190,8 +191,8 @@ name = "Move Mouse"
 vals[0] = name of marker to move to
 '''
 class MoveMouse(Command):
-    def __init__(self):
-        Command.__init__(self, "Move Mouse", [None], "m", "Mouse")
+    def __init__(self, id):
+        Command.__init__(self, id, "Move Mouse", [None], "m", "Mouse")
         self.controller = mouse.Controller()
 
     def label(self):
@@ -218,8 +219,8 @@ name = "Drag Mouse"
 val[0] = name of marker to drag mouse to
 '''
 class DragMouse(Command):
-    def __init__(self):
-        Command.__init__(self, "Drag Mouse", [None], "m", "Mouse")
+    def __init__(self, id):
+        Command.__init__(self, id, "Drag Mouse", [None], "m", "Mouse")
         self.controller = mouse.Controller()
         self.time = 1 #how many seconds to drag before completion
         self.frames = 40 #how many frames in the drag animation (im treating this as an animation)
@@ -281,8 +282,8 @@ vals[0] = amount of steps (int)
 vals[1] = direction (up, right, down, left)
 '''
 class Scroll(Command):
-    def __init__(self):
-        Command.__init__(self, "Scroll Mouse", [None, None], "n", "Mouse")
+    def __init__(self, id):
+        Command.__init__(self, id, "Scroll Mouse", [None, None], "n", "Mouse")
         self.controller = mouse.Controller()
 
     def label(self):
@@ -333,8 +334,8 @@ SLEEP
 vals[0] = sec to sleep
 '''
 class Sleep(Command):
-    def __init__(self):
-        Command.__init__(self, "Sleep", [None], "n", "Other")
+    def __init__(self, id):
+        Command.__init__(self, id, "Sleep", [None], "n", "Other")
 
     def label(self):
         v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
@@ -361,8 +362,8 @@ vals[0] = how many times to repeat
 vals[1] = how many lines after to repeat
 '''
 class Repeat(Command):
-    def __init__(self):
-        Command.__init__(self, "Repeat", [None, None], "n", "Other")
+    def __init__(self, id):
+        Command.__init__(self, id, "Repeat", [None, None], "n", "Other")
 
     def label(self):
         v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"

@@ -35,6 +35,8 @@ class Macro:
         #handles quitting threads
         self.quit = False
 
+        self.uniqueid = 0 #each command will have a unique numerical id (does not correlate to position)
+
         self.title = "Macro Editor" #name of application
         self.wait = 0.5 #seconds in-between each command
         self.hotkey = None #run program when this hotkey is pressed
@@ -827,6 +829,11 @@ class Macro:
         else:
             save["state"] = "normal"
 
+    def get_id(self):
+        rtn = self.uniqueid
+        self.uniqueid += 1 #get the new unique id
+        return rtn
+
     def delete(self, log = True): #deletes a selection of commands in the listbox
         if self.get_active_tab() == "Program":
             curr = self.list.curselection()
@@ -1089,7 +1096,6 @@ class Macro:
             #update listbox label
             self.mlist.delete(self.mcurr)
             self.mlist.insert(self.mcurr, m.name)
-
     
     def run(self, log = True): #run the program!!
         runlist = self.load_runlist() #get the runlists
@@ -1217,7 +1223,7 @@ class Macro:
         self.load_editmarkersave()
 
     def click(self): #create new click command
-        cmd = Click()
+        cmd = Click(self.get_id())
         self.listbox_add(cmd)
     
     def load_click(self): #load click frame onto edit frame
@@ -1259,7 +1265,7 @@ class Macro:
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
     def hold(self): #create new hold object
-        cmd = Hold()
+        cmd = Hold(self.get_id())
         self.listbox_add(cmd)
 
     def load_hold(self): #load the hold frame onto the edit frame
@@ -1301,7 +1307,7 @@ class Macro:
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
     def press(self): #create new press object
-        cmd = Press()
+        cmd = Press(self.get_id())
         self.listbox_add(cmd)
 
     def load_press(self): #load press frame onto edit frame
@@ -1335,7 +1341,7 @@ class Macro:
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
     def release(self): #create new release object
-        cmd = Release()
+        cmd = Release(self.get_id())
         self.listbox_add(cmd)
 
     def load_release(self): #load release frame onto edit frame
@@ -1369,7 +1375,7 @@ class Macro:
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
     def type(self): #create type object
-        cmd = Type()
+        cmd = Type(self.get_id())
         self.listbox_add(cmd)
 
     def load_type(self): #load type frame onto edit frame
@@ -1400,7 +1406,7 @@ class Macro:
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
     def movemouse(self): #create movemouse object
-        cmd = MoveMouse()
+        cmd = MoveMouse(self.get_id())
         self.listbox_add(cmd)
     
     def load_movemouse(self): #load movemouse frame onto edit frame
@@ -1433,7 +1439,7 @@ class Macro:
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
     def dragmouse(self): #create dragmouse object
-        cmd = DragMouse()
+        cmd = DragMouse(self.get_id())
         self.listbox_add(cmd)
     
     def load_dragmouse(self): #load dragmouse frame onto edit frame
@@ -1466,7 +1472,7 @@ class Macro:
         self.load_editsave(frame) #now put the save and delete button at the bottom
 
     def scroll(self): #create scroll object
-        cmd = Scroll()
+        cmd = Scroll(self.get_id())
         self.listbox_add(cmd)
 
     def load_scroll(self): #load scroll frame onto edit frame
@@ -1506,7 +1512,7 @@ class Macro:
         self.load_editsave(frame) #now put the delete and save button at the bottom
 
     def sleep(self): #create sleep object
-        cmd = Sleep()
+        cmd = Sleep(self.get_id())
         self.listbox_add(cmd)
     
     def load_sleep(self): #load sleep frame onto edit frame
@@ -1539,7 +1545,7 @@ class Macro:
         self.load_editsave(frame) #now put the delete and save button at the bottom
 
     def repeat(self): #create repeat object
-        cmd = Repeat()
+        cmd = Repeat(self.get_id())
         self.listbox_add(cmd)
     
     def load_repeat(self): #load repeat frame onto edit frame
@@ -1648,34 +1654,34 @@ class Macro:
                         #now we gotta cast all the bruhs
                         try:
                             if name == "Click": #same as self.click() but it saves the new data to the obj before adding it
-                                cmd = Click()
+                                cmd = Click(self.get_id())
                                 cmd.save([v0, int(v1)])
                             if name == "Hold":
-                                cmd = Hold()
+                                cmd = Hold(self.get_id())
                                 cmd.save([v0, float(v1)])
                             if name == "Press":
-                                cmd = Press()
+                                cmd = Press(self.get_id())
                                 cmd.save([v0])
                             if name == "Release":
-                                cmd = Release()
+                                cmd = Release(self.get_id())
                                 cmd.save([v0])
                             if name == "Type":
-                                cmd = Type()
+                                cmd = Type(self.get_id())
                                 cmd.save([v0])
                             if name == "Move Mouse":
-                                cmd = MoveMouse()
+                                cmd = MoveMouse(self.get_id())
                                 cmd.save([int(v0), int(v1)])
                             if name == "Drag Mouse":
-                                cmd = DragMouse()
+                                cmd = DragMouse(self.get_id())
                                 cmd.save([int(v0), int(v1)])
                             if name == "Scroll Mouse":
-                                cmd = Scroll()
+                                cmd = Scroll(self.get_id())
                                 cmd.save([int(v0), v1])
                             if name == "Sleep":
-                                cmd = Click()
+                                cmd = Sleep(self.get_id())
                                 cmd.save([float(v0)])
                             if name == "Repeat":
-                                cmd = Repeat()
+                                cmd = Repeat(self.get_id())
                                 cmd.save([int(v0), int(v1)])
                                 
                             self.listbox_add(cmd, False, "p") #add to listbox
