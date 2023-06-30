@@ -441,6 +441,8 @@ class Macro:
             if "shift" in self.keys: #shift/caps lock pressed
                 if 65 <= key and key <= 90: #A-Z
                     rtn = key + 32
+                else:
+                    rtn = dict[key]
             elif "caps" in self.keys: #caps lock pressed
                 if 65 <= key and key <= 90: #only a-z are affected
                     rtn = key + 32 #a-z <-- A-Z
