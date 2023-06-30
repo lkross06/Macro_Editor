@@ -441,8 +441,6 @@ class Macro:
             if "shift" in self.keys: #shift/caps lock pressed
                 if 65 <= key and key <= 90: #A-Z
                     rtn = key + 32
-                else:
-                    rtn = dict[key]
             elif "caps" in self.keys: #caps lock pressed
                 if 65 <= key and key <= 90: #only a-z are affected
                     rtn = key + 32 #a-z <-- A-Z
@@ -480,9 +478,9 @@ class Macro:
         keys = list(self.keydict.keys())
         
         for i in range(0, len(keys)):
-            if key == vals[i]:
-                key = keys[i] #use for checking hotkeys
-                self.keys.remove(keys[i])
+            if key == vals[i]: #check special keys
+                if keys[i] in self.keys:
+                    self.keys.remove(keys[i])
 
         #if mh was released and its in marker tab, then enable marker add
         if key == self.mh and self.get_active_tab() == "Marker":
