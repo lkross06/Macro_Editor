@@ -1427,13 +1427,20 @@ class Macro:
         #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
         val0.trace("w", lambda x,y,z : self.enablesave(c1, self.commands[self.curr].vals[0], self.editsave))
 
-        c2 = Label(frame, text="")
+        c2 = Label(frame, text=" in ")
         c2.grid(row=0, column=2)
 
-        c3 = Label(frame, text="") 
+        val1 = tk.DoubleVar()
+        val1.set(self.commands[self.curr].vals[1])
+        self.vals.append(val1)
+
+        c3 = Spinbox(frame, from_=1, to=100, textvariable=self.vals[1], increment=0.1, format="%.1f", width=5)
         c3.grid(row=0, column=3)
 
-        c4 = Label(frame, text="")
+        #whenever the variable changes from default val (i.e. the spinbox is updated), enable the save button
+        val1.trace("w", lambda x,y,z : self.enablesave(c3, self.commands[self.curr].vals[1], self.editsave))
+
+        c4 = Label(frame, text=" seconds")
         c4.grid(row=0, column=4)
 
         self.load_editsave(frame) #now put the save and delete button at the bottom
@@ -1673,7 +1680,7 @@ class Macro:
                                 cmd.save([i[1]])
                             if name == "Move Mouse":
                                 cmd = MoveMouse(self.get_id())
-                                cmd.save([int(i[1])])
+                                cmd.save([int(i[1]), int(i[2])])
                             if name == "Drag Mouse":
                                 cmd = DragMouse(self.get_id())
                                 cmd.save([int(i[1]), int(i[2])])

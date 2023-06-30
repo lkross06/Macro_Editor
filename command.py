@@ -192,26 +192,54 @@ vals[0] = name of marker to move to
 '''
 class MoveMouse(Command):
     def __init__(self, id):
-        Command.__init__(self, id, "Move Mouse", [None], "m", "Mouse")
+        Command.__init__(self, id, "Move Mouse", [None, None], "m", "Mouse")
         self.controller = mouse.Controller()
 
     def label(self):
         v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
-        return "move mouse to " + v0
+        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
+        return "move mouse to " + v0 + " in " + v1 + " seconds"
 
     def save(self, vals):
         m = vals[0]
+        s = vals[1]
 
         self.valid = True
-        self.vals = [m]
+        self.vals = [m, s]
         return True
 
     def run(self, mdict):
-        m = mdict[self.vals[0]] #get the marker
-        x = m.x
-        y = m.y
+        frames = int(self.vals[1] * 100) #make sure the animation is always smooth
+        interval = self.vals[1]/frames
 
-        self.controller.position = (x, y) #manually set position of mouse
+        #get old and new pos
+        oldx = self.controller.position[0]
+        oldy = self.controller.position[1]
+
+        m = mdict[self.vals[0]] #get new pos from marker
+        newx = m.x
+        newy = m.y
+
+        #keep track of current mouse pos
+        x = oldx
+        y = oldy
+
+        '''
+        finish the move in n second (f frames * s second interval)
+        so we need to calculate how many pixels to move per s second for f frames
+        '''
+        dx = (oldx - newx) / frames
+        dy = (oldy - newy) / frames
+
+        for i in range(0, frames):
+            x -= dx #im not gonna lie, idk why im subtracting, it just kinda works yk
+            y -= dy
+            self.controller.position = (x, y) #move the mouse
+            t.sleep(interval)
+        
+        #snap to actual position (in case double->int conversion was off)
+        self.controller.position = (newx, newy)
+
 
 '''
 DRAG MOUSE
@@ -256,8 +284,8 @@ class DragMouse(Command):
         y = oldy
 
         '''
-        finish the drag in n second (40 frames * 0.025 second interval)
-        so we need to calculate how many pixels to move per 0.025 second for 40 frames
+        finish the drag in n second (f frames * s second interval)
+        so we need to calculate how many pixels to move per s second for f frames
         '''
         dx = (oldx - newx) / frames
         dy = (oldy - newy) / frames
@@ -271,7 +299,7 @@ class DragMouse(Command):
             self.controller.position = (x, y) #move the mouse
             t.sleep(interval)
         
-        #snap to actual position
+        #snap to actual position (in case double->int conversion was off)
         self.controller.position = (newx, newy)
 
         #finally, release the drag
