@@ -16,7 +16,7 @@ TODO LIST
 - use tk filedialog to add alerts
 - add commands that are like functions (allow user to customize their own commands, like scratch)
 - idk why but pressing caps lock triggers a zsh: trace trap
-- trace
+- text should not go to white by default after initialization (doesn't work on light mode)
 '''
 
 '''
@@ -481,7 +481,8 @@ class Macro:
         
         for i in range(0, len(keys)):
             if key == vals[i]: #check special keys
-                if keys[i] in self.keys:
+                key = keys[i]
+                if key in self.keys:
                     self.keys.remove(keys[i])
 
         #if mh was released and its in marker tab, then enable marker add
@@ -693,7 +694,7 @@ class Macro:
 
             if cmd.valid:
                 #make white
-                self.list.itemconfig(i,{'fg':'white'}) # TODO: whats the default? cause this doesnt work on light mode
+                self.list.itemconfig(i,{'fg':'white'})
             else:
                 #make gray
                 self.list.itemconfig(i,{'fg':'gray'})
@@ -755,7 +756,7 @@ class Macro:
 
         #add to listbox
         self.listbox_add(m)
-    
+
     def update_canvas(self): #updates the canvas GUI by redrawing everything
         #clear canvas
         self.mcanvas.delete("all")
@@ -1098,7 +1099,6 @@ class Macro:
     
     def run(self, log = True): #run the program!!
         runlist = self.load_runlist() #get the runlists
-        print(runlist)
 
         mdict = self.get_mdict() #get the markers as a dictionary
 
@@ -1126,7 +1126,7 @@ class Macro:
 
         #tab = "a": use active tab, tab = "p": set to program, tab = "m": set to marker
         if tab == "a":
-            tab = self.get_active_tab()
+            tab = self.get_active_tab() #by default just use the current tab, but sometimes we need to put info onto other tabs
         elif tab == "p":
             tab = "Program"
         elif tab == "m":
