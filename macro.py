@@ -1096,6 +1096,9 @@ class Macro:
             #update listbox label
             self.mlist.delete(self.mcurr)
             self.mlist.insert(self.mcurr, m.name)
+
+            if log:
+                self.update_history("edit", name.lower() + " marker")
     
     def run(self, log = True): #run the program!!
         runlist = self.load_runlist() #get the runlists
