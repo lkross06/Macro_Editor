@@ -220,27 +220,28 @@ val[0] = name of marker to drag mouse to
 '''
 class DragMouse(Command):
     def __init__(self, id):
-        Command.__init__(self, id, "Drag Mouse", [None], "m", "Mouse")
+        Command.__init__(self, id, "Drag Mouse", [None, None], "m", "Mouse")
         self.controller = mouse.Controller()
-        self.time = 1 #how many seconds to drag before completion
-        self.frames = 40 #how many frames in the drag animation (im treating this as an animation)
 
     def label(self):
         v0 = str(self.vals[0]) if not(self.vals[0] == None) else "__"
-        return "drag mouse to " + v0
+        v1 = str(self.vals[1]) if not(self.vals[1] == None) else "__"
+        return "drag mouse to " + v0 + " in " + v1 + " seconds"
 
     def save(self, vals):
         m = vals[0]
+        s = vals[1]
 
         self.valid = True
-        self.vals = [m]
+        self.vals = [m, s]
         return True
 
     def getexectime(self):
-        return self.time #drag always takes 1 second
+        return self.vals[1] #drag always takes 1 second
 
     def run(self, mdict):
-        interval = self.time/self.frames
+        frames = int(self.vals[1] * 100) #make sure the animation is always smooth
+        interval = self.vals[1]/frames
 
         #get old and new pos
         oldx = self.controller.position[0]
@@ -255,16 +256,16 @@ class DragMouse(Command):
         y = oldy
 
         '''
-        finish the drag in 1 second (40 frames * 0.025 second interval)
+        finish the drag in n second (40 frames * 0.025 second interval)
         so we need to calculate how many pixels to move per 0.025 second for 40 frames
         '''
-        dx = (oldx - newx) / self.frames
-        dy = (oldy - newy) / self.frames
+        dx = (oldx - newx) / frames
+        dy = (oldy - newy) / frames
 
         #start the drag by holding down lmb
         self.controller.press(mouse.Button.left) #left moues button to drag
 
-        for i in range(0, self.frames):
+        for i in range(0, frames):
             x -= dx #im not gonna lie, idk why im subtracting, it just kinda works yk
             y -= dy
             self.controller.position = (x, y) #move the mouse
