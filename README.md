@@ -1,6 +1,3 @@
 # Macro_Editor
-Application that allows user to create their own macro program with commands.
 
-Dependencies:
-- tkinter library (handles GUI of application)
-- pynput library (listens for user's keyboard/mouse inputs and simulates keyboard/mouse inputs)
+This was a short summer project that allows the user to create their own [macro program](https://en.wikipedia.org/wiki/Macro_(computer_science)) that emulates keyboard/mouse inputs. Designed to help my brother automate desktop tasks for his sneaker reselling business.
